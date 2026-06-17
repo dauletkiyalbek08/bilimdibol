@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { getSupabaseAdmin } from "@/lib/supabase/admin";
 import { HUNTERS } from "@/lib/mock-data";
+import { notifyTelegram } from "@/lib/notify/telegram";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -130,6 +131,18 @@ export async function POST(req: Request) {
     } catch {
       /* lead is saved; deal is best-effort */
     }
+
+    // Instant Telegram notification (best-effort, no-op if not configured)
+    const appUrl = process.env.NEXT_PUBLIC_APP_URL || "https://bilimdibol.vercel.app";
+    await notifyTelegram(
+      `🔔 <b>Новый лид</b>\n` +
+        `👤 ${name || "Без имени"}\n` +
+        `📞 ${phone || "—"}\n` +
+        `📍 Источник: ${source}\n` +
+        (comment ? `💬 ${comment}\n` : "") +
+        `🎯 Hunter: ${hunter.name}\n\n` +
+        `➡️ ${appUrl}/leads`,
+    );
 
     return NextResponse.json(
       { ok: true, mode: "live", id: data?.id, assignedTo: hunter.name, dealCreated },
