@@ -10,19 +10,19 @@
 -- Emails here must match the auth accounts.
 -- =============================================================
 
-insert into users (name, login, role, email, phone, avatar_color) values
-  ('Айжан К.',    'admin',      'admin',      'aizhan@bilimdibol.kz',   '+7 701 111 22 33', '#16A34A'),
-  ('Тимур Р.',    'rop',        'rop',        'timur@bilimdibol.kz',    '+7 701 222 33 44', '#FB923C'),
-  ('Мадина Т.',   'hunter1',    'hunter',     'madina@bilimdibol.kz',   '+7 701 333 44 55', '#0EA5E9'),
-  ('Аружан Ж.',   'hunter2',    'hunter',     'aruzhan@bilimdibol.kz',  '+7 701 444 55 66', '#8B5CF6'),
-  ('Нурлан К.',   'hunter3',    'hunter',     'nurlan@bilimdibol.kz',   '+7 701 555 66 77', '#EC4899'),
-  ('Салтанат Ж.', 'manager1',   'manager',    'saltanat@bilimdibol.kz', '+7 701 666 77 88', '#F59E0B'),
-  ('Айна Б.',     'manager2',   'manager',    'aina@bilimdibol.kz',     '+7 701 777 88 99', '#14B8A6'),
-  ('Диас А.',     'target',     'target',     'dias@bilimdibol.kz',     '+7 701 888 99 00', '#EF4444'),
-  ('Гульмира С.', 'accountant', 'accountant', 'gulmira@bilimdibol.kz',  '+7 701 999 00 11', '#6366F1'),
-  ('Еркежан М.',  'content',    'content',    'yerkezhan@bilimdibol.kz','+7 701 000 11 22', '#84CC16'),
-  ('Жанар О.',    'marketer',   'marketer',   'zhanar@bilimdibol.kz',   '+7 701 121 34 55', '#D946EF'),
-  ('Камиля Д.',   'smm',        'smm',        'kamilya@bilimdibol.kz',  '+7 701 232 45 66', '#0891B2')
+insert into users (id, name, login, role, email, phone, avatar_color) values
+  ('00000000-0000-0000-0000-000000000001', 'Айжан К.',    'admin',      'admin',      'aizhan@bilimdibol.kz',   '+7 701 111 22 33', '#16A34A'),
+  ('00000000-0000-0000-0000-000000000002', 'Тимур Р.',    'rop',        'rop',        'timur@bilimdibol.kz',    '+7 701 222 33 44', '#FB923C'),
+  ('00000000-0000-0000-0000-000000000003', 'Мадина Т.',   'hunter1',    'hunter',     'madina@bilimdibol.kz',   '+7 701 333 44 55', '#0EA5E9'),
+  ('00000000-0000-0000-0000-000000000004', 'Аружан Ж.',   'hunter2',    'hunter',     'aruzhan@bilimdibol.kz',  '+7 701 444 55 66', '#8B5CF6'),
+  ('00000000-0000-0000-0000-000000000005', 'Нурлан К.',   'hunter3',    'hunter',     'nurlan@bilimdibol.kz',   '+7 701 555 66 77', '#EC4899'),
+  ('00000000-0000-0000-0000-000000000006', 'Салтанат Ж.', 'manager1',   'manager',    'saltanat@bilimdibol.kz', '+7 701 666 77 88', '#F59E0B'),
+  ('00000000-0000-0000-0000-000000000007', 'Айна Б.',     'manager2',   'manager',    'aina@bilimdibol.kz',     '+7 701 777 88 99', '#14B8A6'),
+  ('00000000-0000-0000-0000-000000000008', 'Диас А.',     'target',     'target',     'dias@bilimdibol.kz',     '+7 701 888 99 00', '#EF4444'),
+  ('00000000-0000-0000-0000-000000000009', 'Гульмира С.', 'accountant', 'accountant', 'gulmira@bilimdibol.kz',  '+7 701 999 00 11', '#6366F1'),
+  ('00000000-0000-0000-0000-000000000010', 'Еркежан М.',  'content',    'content',    'yerkezhan@bilimdibol.kz','+7 701 000 11 22', '#84CC16'),
+  ('00000000-0000-0000-0000-000000000011', 'Жанар О.',    'marketer',   'marketer',   'zhanar@bilimdibol.kz',   '+7 701 121 34 55', '#D946EF'),
+  ('00000000-0000-0000-0000-000000000012', 'Камиля Д.',   'smm',        'smm',        'kamilya@bilimdibol.kz',  '+7 701 232 45 66', '#0891B2')
 on conflict (login) do nothing;
 
 -- Sample leads (hunter referenced by login)

@@ -59,19 +59,21 @@ const AVATAR_COLORS = [
   "#0891B2",
 ];
 
+// Fixed UUIDs so the demo employee list matches the Supabase `users` table
+// (DB rows reference these ids → names/filters work in both mock and live mode).
 export const EMPLOYEES: User[] = [
-  { id: "u1", name: "Айжан К.", role: "admin", email: "aizhan@bilimdibol.kz", phone: "+7 701 111 22 33", avatarColor: AVATAR_COLORS[0], projectId: PID },
-  { id: "u2", name: "Тимур Р.", role: "rop", email: "timur@bilimdibol.kz", phone: "+7 701 222 33 44", avatarColor: AVATAR_COLORS[1], projectId: PID },
-  { id: "u3", name: "Мадина Т.", role: "hunter", email: "madina@bilimdibol.kz", phone: "+7 701 333 44 55", avatarColor: AVATAR_COLORS[2], projectId: PID },
-  { id: "u4", name: "Аружан Ж.", role: "hunter", email: "aruzhan@bilimdibol.kz", phone: "+7 701 444 55 66", avatarColor: AVATAR_COLORS[3], projectId: PID },
-  { id: "u5", name: "Нурлан К.", role: "hunter", email: "nurlan@bilimdibol.kz", phone: "+7 701 555 66 77", avatarColor: AVATAR_COLORS[4], projectId: PID },
-  { id: "u6", name: "Салтанат Ж.", role: "manager", email: "saltanat@bilimdibol.kz", phone: "+7 701 666 77 88", avatarColor: AVATAR_COLORS[5], projectId: PID },
-  { id: "u7", name: "Айна Б.", role: "manager", email: "aina@bilimdibol.kz", phone: "+7 701 777 88 99", avatarColor: AVATAR_COLORS[6], projectId: PID },
-  { id: "u8", name: "Диас А.", role: "target", email: "dias@bilimdibol.kz", phone: "+7 701 888 99 00", avatarColor: AVATAR_COLORS[7], projectId: PID },
-  { id: "u9", name: "Гульмира С.", role: "accountant", email: "gulmira@bilimdibol.kz", phone: "+7 701 999 00 11", avatarColor: AVATAR_COLORS[8], projectId: PID },
-  { id: "u10", name: "Еркежан М.", role: "content", email: "yerkezhan@bilimdibol.kz", phone: "+7 701 000 11 22", avatarColor: AVATAR_COLORS[9], projectId: PID },
-  { id: "u11", name: "Жанар О.", role: "marketer", email: "zhanar@bilimdibol.kz", phone: "+7 701 121 34 55", avatarColor: AVATAR_COLORS[10], projectId: PID },
-  { id: "u12", name: "Камиля Д.", role: "smm", email: "kamilya@bilimdibol.kz", phone: "+7 701 232 45 66", avatarColor: AVATAR_COLORS[11], projectId: PID },
+  { id: "00000000-0000-0000-0000-000000000001", name: "Айжан К.", role: "admin", email: "aizhan@bilimdibol.kz", phone: "+7 701 111 22 33", avatarColor: AVATAR_COLORS[0], projectId: PID },
+  { id: "00000000-0000-0000-0000-000000000002", name: "Тимур Р.", role: "rop", email: "timur@bilimdibol.kz", phone: "+7 701 222 33 44", avatarColor: AVATAR_COLORS[1], projectId: PID },
+  { id: "00000000-0000-0000-0000-000000000003", name: "Мадина Т.", role: "hunter", email: "madina@bilimdibol.kz", phone: "+7 701 333 44 55", avatarColor: AVATAR_COLORS[2], projectId: PID },
+  { id: "00000000-0000-0000-0000-000000000004", name: "Аружан Ж.", role: "hunter", email: "aruzhan@bilimdibol.kz", phone: "+7 701 444 55 66", avatarColor: AVATAR_COLORS[3], projectId: PID },
+  { id: "00000000-0000-0000-0000-000000000005", name: "Нурлан К.", role: "hunter", email: "nurlan@bilimdibol.kz", phone: "+7 701 555 66 77", avatarColor: AVATAR_COLORS[4], projectId: PID },
+  { id: "00000000-0000-0000-0000-000000000006", name: "Салтанат Ж.", role: "manager", email: "saltanat@bilimdibol.kz", phone: "+7 701 666 77 88", avatarColor: AVATAR_COLORS[5], projectId: PID },
+  { id: "00000000-0000-0000-0000-000000000007", name: "Айна Б.", role: "manager", email: "aina@bilimdibol.kz", phone: "+7 701 777 88 99", avatarColor: AVATAR_COLORS[6], projectId: PID },
+  { id: "00000000-0000-0000-0000-000000000008", name: "Диас А.", role: "target", email: "dias@bilimdibol.kz", phone: "+7 701 888 99 00", avatarColor: AVATAR_COLORS[7], projectId: PID },
+  { id: "00000000-0000-0000-0000-000000000009", name: "Гульмира С.", role: "accountant", email: "gulmira@bilimdibol.kz", phone: "+7 701 999 00 11", avatarColor: AVATAR_COLORS[8], projectId: PID },
+  { id: "00000000-0000-0000-0000-000000000010", name: "Еркежан М.", role: "content", email: "yerkezhan@bilimdibol.kz", phone: "+7 701 000 11 22", avatarColor: AVATAR_COLORS[9], projectId: PID },
+  { id: "00000000-0000-0000-0000-000000000011", name: "Жанар О.", role: "marketer", email: "zhanar@bilimdibol.kz", phone: "+7 701 121 34 55", avatarColor: AVATAR_COLORS[10], projectId: PID },
+  { id: "00000000-0000-0000-0000-000000000012", name: "Камиля Д.", role: "smm", email: "kamilya@bilimdibol.kz", phone: "+7 701 232 45 66", avatarColor: AVATAR_COLORS[11], projectId: PID },
 ];
 
 export const HUNTERS = EMPLOYEES.filter((e) => e.role === "hunter");

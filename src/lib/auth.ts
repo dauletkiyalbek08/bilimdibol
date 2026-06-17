@@ -12,18 +12,18 @@ export interface DemoCredential {
 }
 
 export const CREDENTIALS: DemoCredential[] = [
-  { login: "admin", password: "admin2026", userId: "u1" },
-  { login: "rop", password: "sales2026", userId: "u2" },
-  { login: "hunter1", password: "hunter2026", userId: "u3" },
-  { login: "hunter2", password: "hunter2026", userId: "u4" },
-  { login: "hunter3", password: "hunter2026", userId: "u5" },
-  { login: "manager1", password: "teacher2026", userId: "u6" },
-  { login: "manager2", password: "teacher2026", userId: "u7" },
-  { login: "target", password: "target2026", userId: "u8" },
-  { login: "accountant", password: "finance2026", userId: "u9" },
-  { login: "content", password: "content2026", userId: "u10" },
-  { login: "marketer", password: "marketing2026", userId: "u11" },
-  { login: "smm", password: "smm2026", userId: "u12" },
+  { login: "admin", password: "admin2026", userId: "00000000-0000-0000-0000-000000000001" },
+  { login: "rop", password: "sales2026", userId: "00000000-0000-0000-0000-000000000002" },
+  { login: "hunter1", password: "hunter2026", userId: "00000000-0000-0000-0000-000000000003" },
+  { login: "hunter2", password: "hunter2026", userId: "00000000-0000-0000-0000-000000000004" },
+  { login: "hunter3", password: "hunter2026", userId: "00000000-0000-0000-0000-000000000005" },
+  { login: "manager1", password: "teacher2026", userId: "00000000-0000-0000-0000-000000000006" },
+  { login: "manager2", password: "teacher2026", userId: "00000000-0000-0000-0000-000000000007" },
+  { login: "target", password: "target2026", userId: "00000000-0000-0000-0000-000000000008" },
+  { login: "accountant", password: "finance2026", userId: "00000000-0000-0000-0000-000000000009" },
+  { login: "content", password: "content2026", userId: "00000000-0000-0000-0000-000000000010" },
+  { login: "marketer", password: "marketing2026", userId: "00000000-0000-0000-0000-000000000011" },
+  { login: "smm", password: "smm2026", userId: "00000000-0000-0000-0000-000000000012" },
 ];
 
 /** Find a user by credentials. Returns null on failure. */
