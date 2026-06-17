@@ -44,3 +44,54 @@ export async function fetchClients(): Promise<Client[]> {
     return CLIENTS;
   }
 }
+
+export interface NewClientInput {
+  name: string;
+  phone: string;
+  course: string;
+  managerId: string;
+  totalPaid?: number;
+  email?: string;
+}
+
+/** Create a client — persists to Supabase when configured, else local object. */
+export async function createClient(input: NewClientInput): Promise<Client> {
+  const sb = getSupabase();
+  const nowIso = new Date().toISOString();
+
+  if (sb) {
+    try {
+      const { data, error } = await sb
+        .from("clients")
+        .insert({
+          name: input.name,
+          phone: input.phone,
+          course: input.course,
+          manager_id: input.managerId || null,
+          total_paid: input.totalPaid ?? 0,
+          status: "Активный",
+          progress: 0,
+          email: input.email ?? null,
+        })
+        .select("*")
+        .single();
+      if (!error && data) return mapRow(data as ClientRow);
+    } catch {
+      /* fall through */
+    }
+  }
+
+  return {
+    id: `client-local-${Date.now()}`,
+    projectId: "english-course",
+    name: input.name,
+    phone: input.phone,
+    email: input.email,
+    course: input.course,
+    managerId: input.managerId,
+    totalPaid: input.totalPaid ?? 0,
+    status: "Активный",
+    joinedAt: nowIso,
+    progress: 0,
+  };
+}

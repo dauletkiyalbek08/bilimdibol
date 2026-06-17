@@ -66,3 +66,70 @@ export async function updateLeadStatus(id: string, status: LeadStatus): Promise<
     /* ignore in demo */
   }
 }
+
+/** Update a lead's comment — persists to Supabase when configured. */
+export async function updateLeadComment(id: string, comment: string): Promise<void> {
+  const sb = getSupabase();
+  if (!sb) return;
+  try {
+    await sb.from("leads").update({ comment }).eq("id", id);
+  } catch {
+    /* ignore in demo */
+  }
+}
+
+export interface NewLeadInput {
+  name: string;
+  phone: string;
+  source: LeadSource;
+  hunterId: string;
+  comment?: string;
+  email?: string;
+  instagram?: string;
+}
+
+/**
+ * Create a lead. Inserts into Supabase when configured (returns the saved row),
+ * otherwise builds a local Lead object for the in-session demo.
+ */
+export async function createLead(input: NewLeadInput): Promise<Lead> {
+  const sb = getSupabase();
+  const nowIso = new Date().toISOString();
+
+  if (sb) {
+    try {
+      const { data, error } = await sb
+        .from("leads")
+        .insert({
+          name: input.name,
+          phone: input.phone,
+          source: input.source,
+          hunter_id: input.hunterId || null,
+          status: "new",
+          comment: input.comment ?? "",
+          email: input.email ?? null,
+          instagram: input.instagram ?? null,
+        })
+        .select("*")
+        .single();
+      if (!error && data) return mapRow(data as LeadRow);
+    } catch {
+      /* fall through to local object */
+    }
+  }
+
+  return {
+    id: `lead-local-${Date.now()}`,
+    projectId: "english-course",
+    name: input.name,
+    phone: input.phone,
+    email: input.email,
+    instagram: input.instagram,
+    source: input.source,
+    hunterId: input.hunterId,
+    status: "new",
+    createdAt: nowIso,
+    comment: input.comment ?? "",
+    history: [{ date: nowIso, author: "Вы", text: "Лид создан вручную" }],
+  };
+}

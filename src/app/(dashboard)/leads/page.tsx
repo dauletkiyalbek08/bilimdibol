@@ -10,9 +10,10 @@ import {
   RefreshCw,
   X,
   Clock,
+  Plus,
 } from "lucide-react";
 import { useApp } from "@/lib/store";
-import { fetchLeads, updateLeadStatus } from "@/lib/data/leads";
+import { fetchLeads, updateLeadStatus, updateLeadComment, createLead } from "@/lib/data/leads";
 import { HUNTERS, employeeName, SOURCES } from "@/lib/mock-data";
 import { LEAD_MAP } from "@/components/status-badge";
 import { PageHeader } from "@/components/page-header";
@@ -67,7 +68,16 @@ function LeadsInner() {
   const [statusModal, setStatusModal] = React.useState(false);
   const [commentModal, setCommentModal] = React.useState(false);
   const [trialModal, setTrialModal] = React.useState(false);
+  const [createModal, setCreateModal] = React.useState(false);
   const [commentDraft, setCommentDraft] = React.useState("");
+  const [creating, setCreating] = React.useState(false);
+  const [draft, setDraft] = React.useState({
+    name: "",
+    phone: "",
+    source: SOURCES[0],
+    hunterId: HUNTERS[0].id,
+    comment: "",
+  });
 
   const filtered = leads.filter((l) => {
     if (status !== "all" && l.status !== status) return false;
@@ -117,8 +127,20 @@ function LeadsInner() {
           : l,
       ),
     );
+    void updateLeadComment(id, text); // persists to Supabase when configured
     setCommentDraft("");
     setCommentModal(false);
+  }
+
+  async function handleCreate() {
+    if (!draft.name.trim() || !draft.phone.trim()) return;
+    setCreating(true);
+    const lead = await createLead(draft);
+    setLeads((prev) => [lead, ...prev]);
+    setSelectedId(lead.id);
+    setCreating(false);
+    setCreateModal(false);
+    setDraft({ name: "", phone: "", source: SOURCES[0], hunterId: HUNTERS[0].id, comment: "" });
   }
 
   function assignTrial(id: string) {
@@ -173,6 +195,9 @@ function LeadsInner() {
   return (
     <div className="space-y-6">
       <PageHeader title="Лиды" description={`CRM · ${filtered.length} лидов · ${range.label}`}>
+        <Button onClick={() => setCreateModal(true)}>
+          <Plus /> Новый лид
+        </Button>
         <ExportButton />
       </PageHeader>
 
@@ -306,6 +331,53 @@ function LeadsInner() {
           )}
         </div>
       </div>
+
+      {/* Create lead modal */}
+      <Modal
+        open={createModal}
+        onClose={() => setCreateModal(false)}
+        title="Новый лид"
+        description="Добавить лид в CRM"
+        footer={
+          <>
+            <Button variant="ghost" onClick={() => setCreateModal(false)}>Отмена</Button>
+            <Button onClick={handleCreate} disabled={creating || !draft.name.trim() || !draft.phone.trim()}>
+              {creating ? "Сохранение…" : "Создать лид"}
+            </Button>
+          </>
+        }
+      >
+        <div className="grid gap-3 sm:grid-cols-2">
+          <div className="sm:col-span-2">
+            <label className="mb-1 block text-xs font-medium text-muted">Имя клиента *</label>
+            <Input value={draft.name} onChange={(e) => setDraft({ ...draft, name: e.target.value })} placeholder="Напр. Алишер А." />
+          </div>
+          <div>
+            <label className="mb-1 block text-xs font-medium text-muted">Телефон *</label>
+            <Input value={draft.phone} onChange={(e) => setDraft({ ...draft, phone: e.target.value })} placeholder="+7 701 …" />
+          </div>
+          <div>
+            <label className="mb-1 block text-xs font-medium text-muted">Источник</label>
+            <Select value={draft.source} onChange={(e) => setDraft({ ...draft, source: e.target.value as typeof draft.source })}>
+              {SOURCES.map((s) => (
+                <option key={s} value={s}>{s}</option>
+              ))}
+            </Select>
+          </div>
+          <div className="sm:col-span-2">
+            <label className="mb-1 block text-xs font-medium text-muted">Hunter</label>
+            <Select value={draft.hunterId} onChange={(e) => setDraft({ ...draft, hunterId: e.target.value })}>
+              {HUNTERS.map((h) => (
+                <option key={h.id} value={h.id}>{h.name}</option>
+              ))}
+            </Select>
+          </div>
+          <div className="sm:col-span-2">
+            <label className="mb-1 block text-xs font-medium text-muted">Комментарий</label>
+            <Input value={draft.comment} onChange={(e) => setDraft({ ...draft, comment: e.target.value })} placeholder="Что интересует…" />
+          </div>
+        </div>
+      </Modal>
 
       {/* Status modal */}
       {selected && (

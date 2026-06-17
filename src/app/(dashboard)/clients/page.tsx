@@ -1,10 +1,10 @@
 "use client";
 
 import * as React from "react";
-import { UserCheck, Wallet, GraduationCap, Repeat } from "lucide-react";
+import { UserCheck, Wallet, GraduationCap, Repeat, Plus } from "lucide-react";
 import { useApp } from "@/lib/store";
-import { fetchClients } from "@/lib/data/clients";
-import { employeeName, COURSES } from "@/lib/mock-data";
+import { fetchClients, createClient } from "@/lib/data/clients";
+import { employeeName, COURSES, MANAGERS } from "@/lib/mock-data";
 import { PageHeader } from "@/components/page-header";
 import { RoleBasedGuard } from "@/components/role-based-guard";
 import { MetricCard } from "@/components/metric-card";
@@ -14,6 +14,9 @@ import { SearchInput } from "@/components/search-input";
 import { ExportButton } from "@/components/export-button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Select } from "@/components/ui/select";
+import { Input } from "@/components/ui/input";
+import { Button } from "@/components/ui/button";
+import { Modal } from "@/components/ui/modal";
 import { UserAvatar } from "@/components/user-avatar";
 import { formatKzt, fmtDate } from "@/lib/utils";
 import type { Client } from "@/lib/types";
@@ -33,6 +36,15 @@ function ClientsInner() {
   const [status, setStatus] = React.useState("all");
   const [clients, setClients] = React.useState<Client[]>([]);
   const [loading, setLoading] = React.useState(true);
+  const [createModal, setCreateModal] = React.useState(false);
+  const [creating, setCreating] = React.useState(false);
+  const [draft, setDraft] = React.useState({
+    name: "",
+    phone: "",
+    course: COURSES[0],
+    managerId: MANAGERS[0].id,
+    totalPaid: "",
+  });
 
   React.useEffect(() => {
     let active = true;
@@ -46,6 +58,22 @@ function ClientsInner() {
       active = false;
     };
   }, []);
+
+  async function handleCreate() {
+    if (!draft.name.trim() || !draft.phone.trim()) return;
+    setCreating(true);
+    const client = await createClient({
+      name: draft.name,
+      phone: draft.phone,
+      course: draft.course,
+      managerId: draft.managerId,
+      totalPaid: Number(draft.totalPaid) || 0,
+    });
+    setClients((prev) => [client, ...prev]);
+    setCreating(false);
+    setCreateModal(false);
+    setDraft({ name: "", phone: "", course: COURSES[0], managerId: MANAGERS[0].id, totalPaid: "" });
+  }
 
   const filtered = clients.filter((c) => {
     if (course !== "all" && c.course !== course) return false;
@@ -97,6 +125,9 @@ function ClientsInner() {
   return (
     <div className="space-y-6">
       <PageHeader title="Клиенты" description={`База клиентов · ${filtered.length} из ${clients.length} · ${range.label}`}>
+        <Button onClick={() => setCreateModal(true)}>
+          <Plus /> Новый клиент
+        </Button>
         <ExportButton />
       </PageHeader>
 
@@ -138,6 +169,53 @@ function ClientsInner() {
           )}
         </CardContent>
       </Card>
+
+      {/* Create client modal */}
+      <Modal
+        open={createModal}
+        onClose={() => setCreateModal(false)}
+        title="Новый клиент"
+        description="Добавить клиента в базу"
+        footer={
+          <>
+            <Button variant="ghost" onClick={() => setCreateModal(false)}>Отмена</Button>
+            <Button onClick={handleCreate} disabled={creating || !draft.name.trim() || !draft.phone.trim()}>
+              {creating ? "Сохранение…" : "Создать клиента"}
+            </Button>
+          </>
+        }
+      >
+        <div className="grid gap-3 sm:grid-cols-2">
+          <div className="sm:col-span-2">
+            <label className="mb-1 block text-xs font-medium text-muted">Имя клиента *</label>
+            <Input value={draft.name} onChange={(e) => setDraft({ ...draft, name: e.target.value })} placeholder="Напр. Алия А." />
+          </div>
+          <div>
+            <label className="mb-1 block text-xs font-medium text-muted">Телефон *</label>
+            <Input value={draft.phone} onChange={(e) => setDraft({ ...draft, phone: e.target.value })} placeholder="+7 701 …" />
+          </div>
+          <div>
+            <label className="mb-1 block text-xs font-medium text-muted">Оплачено (₸)</label>
+            <Input type="number" value={draft.totalPaid} onChange={(e) => setDraft({ ...draft, totalPaid: e.target.value })} placeholder="159000" />
+          </div>
+          <div>
+            <label className="mb-1 block text-xs font-medium text-muted">Курс</label>
+            <Select value={draft.course} onChange={(e) => setDraft({ ...draft, course: e.target.value })}>
+              {COURSES.map((c) => (
+                <option key={c} value={c}>{c}</option>
+              ))}
+            </Select>
+          </div>
+          <div>
+            <label className="mb-1 block text-xs font-medium text-muted">Менеджер</label>
+            <Select value={draft.managerId} onChange={(e) => setDraft({ ...draft, managerId: e.target.value })}>
+              {MANAGERS.map((m) => (
+                <option key={m.id} value={m.id}>{m.name}</option>
+              ))}
+            </Select>
+          </div>
+        </div>
+      </Modal>
     </div>
   );
 }
