@@ -136,7 +136,27 @@ export async function createLead(input: NewLeadInput): Promise<Lead> {
         })
         .select("*")
         .single();
-      if (!error && data) return mapRow(data as LeadRow);
+      if (!error && data) {
+        // Auto-create a deal in the CRM pipeline (best-effort)
+        try {
+          await sb.from("deals").insert({
+            lead_id: data.id,
+            client_name: input.name,
+            phone: input.phone,
+            source: input.source,
+            amount: 0,
+            hunter_id: input.hunterId || null,
+            stage: "new",
+            next_step: "Связаться и квалифицировать",
+            quality: "warm",
+            probability: 10,
+            comment: input.comment ?? "",
+          });
+        } catch {
+          /* lead saved; deal is best-effort */
+        }
+        return mapRow(data as LeadRow);
+      }
     } catch {
       /* fall through to local object */
     }

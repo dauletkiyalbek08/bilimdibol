@@ -108,8 +108,31 @@ export async function POST(req: Request) {
 
     if (error) throw error;
 
+    // Auto-create a deal in the CRM pipeline (stage "new"), linked to the lead
+    let dealCreated = false;
+    try {
+      const { error: dealErr } = await admin.from("deals").insert({
+        lead_id: data?.id ?? null,
+        client_name: name || "Без имени",
+        phone,
+        source,
+        amount: 0,
+        hunter_id: hunter.id,
+        stage: "new",
+        next_step: "Связаться и квалифицировать",
+        quality: "warm",
+        probability: 10,
+        comment,
+        utm_campaign: utm_campaign || null,
+        creative_id: creative_id || null,
+      });
+      dealCreated = !dealErr;
+    } catch {
+      /* lead is saved; deal is best-effort */
+    }
+
     return NextResponse.json(
-      { ok: true, mode: "live", id: data?.id, assignedTo: hunter.name },
+      { ok: true, mode: "live", id: data?.id, assignedTo: hunter.name, dealCreated },
       { headers: cors },
     );
   } catch (e) {
