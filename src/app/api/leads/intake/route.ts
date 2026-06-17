@@ -67,6 +67,24 @@ export async function POST(req: Request) {
   }
 
   try {
+    // ---- Dedup by phone (last 10 digits) — repeat ad clicks won't create duplicates
+    const incomingDigits = phone.replace(/\D/g, "");
+    if (incomingDigits.length >= 6) {
+      const { data: existing } = await admin.from("leads").select("id, phone, comment").limit(3000);
+      const tail = incomingDigits.slice(-10);
+      const dup = (existing ?? []).find(
+        (l) => (l.phone || "").replace(/\D/g, "").slice(-10) === tail,
+      );
+      if (dup) {
+        const note = `${dup.comment ?? ""} · повторная заявка (${source}, ${new Date().toLocaleDateString("ru-RU")})`.trim();
+        await admin.from("leads").update({ comment: note }).eq("id", dup.id);
+        return NextResponse.json(
+          { ok: true, mode: "live", deduped: true, id: dup.id },
+          { headers: cors },
+        );
+      }
+    }
+
     // Round-robin assignment by current lead count
     const { count } = await admin.from("leads").select("id", { count: "exact", head: true });
     const hunter = HUNTERS[(count ?? 0) % HUNTERS.length];

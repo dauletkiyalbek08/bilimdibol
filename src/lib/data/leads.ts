@@ -56,6 +56,30 @@ export async function fetchLeads(): Promise<Lead[]> {
   }
 }
 
+/** Live lead counts grouped by source (for funnel analytics). */
+export async function fetchLeadSourceCounts(): Promise<{ source: string; count: number }[]> {
+  const tally = (rows: { source?: string | null }[]) => {
+    const m = new Map<string, number>();
+    for (const r of rows) {
+      const s = r.source || "—";
+      m.set(s, (m.get(s) ?? 0) + 1);
+    }
+    return Array.from(m.entries())
+      .map(([source, count]) => ({ source, count }))
+      .sort((a, b) => b.count - a.count);
+  };
+
+  const sb = getSupabase();
+  if (!sb) return tally(LEADS);
+  try {
+    const { data, error } = await sb.from("leads").select("source");
+    if (error || !data) return tally(LEADS);
+    return tally(data as { source: string }[]);
+  } catch {
+    return tally(LEADS);
+  }
+}
+
 /** Update a lead's status — persists to Supabase when configured. */
 export async function updateLeadStatus(id: string, status: LeadStatus): Promise<void> {
   const sb = getSupabase();
