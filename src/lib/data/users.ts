@@ -11,6 +11,7 @@ interface UserRow {
   email: string | null;
   phone: string | null;
   avatar_color: string | null;
+  active?: boolean | null;
 }
 
 const PALETTE = ["#16A34A", "#FB923C", "#0EA5E9", "#8B5CF6", "#EC4899", "#F59E0B", "#14B8A6", "#EF4444", "#6366F1", "#84CC16", "#D946EF", "#0891B2"];
@@ -24,6 +25,7 @@ export function mapUser(r: UserRow): User {
     phone: r.phone ?? undefined,
     avatarColor: r.avatar_color ?? PALETTE[0],
     projectId: "english-course",
+    active: r.active ?? true,
   };
 }
 
@@ -69,6 +71,18 @@ export async function updateUserRole(id: string, role: RoleId): Promise<boolean>
   if (!sb) return false;
   try {
     const { error } = await sb.from("users").update({ role }).eq("id", id);
+    return !error;
+  } catch {
+    return false;
+  }
+}
+
+/** Включить / выключить сотрудника (RLS: только админ). */
+export async function updateUserActive(id: string, active: boolean): Promise<boolean> {
+  const sb = getSupabase();
+  if (!sb) return false;
+  try {
+    const { error } = await sb.from("users").update({ active }).eq("id", id);
     return !error;
   } catch {
     return false;

@@ -35,6 +35,7 @@ export interface User {
   phone?: string;
   avatarColor: string;
   projectId: string;
+  active?: boolean;
 }
 
 // ---------- Leads / CRM ----------

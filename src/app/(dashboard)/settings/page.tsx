@@ -1,10 +1,10 @@
 "use client";
 
 import * as React from "react";
-import { Building2, Bell, Plug, Users, Globe, Check, MapPin, Crosshair, Plus } from "lucide-react";
+import { Building2, Bell, Plug, Users, Globe, Check, MapPin, Crosshair, Plus, UserCheck, UserX } from "lucide-react";
 import { useApp } from "@/lib/store";
 import { getRole, PROJECT, ROLES } from "@/lib/roles";
-import { fetchUsers, updateUserRole } from "@/lib/data/users";
+import { fetchUsers, updateUserRole, updateUserActive } from "@/lib/data/users";
 import { fetchOfficeSettings, saveOfficeSettings } from "@/lib/data/settings";
 import { PageHeader } from "@/components/page-header";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
@@ -191,6 +191,11 @@ function TeamCard({ canManage }: { canManage: boolean }) {
     await updateUserRole(id, newRole);
   }
 
+  async function toggleActive(id: string, active: boolean) {
+    setUsers((prev) => prev.map((u) => (u.id === id ? { ...u, active } : u)));
+    await updateUserActive(id, active);
+  }
+
   return (
     <Card>
       <CardHeader className="flex-row items-start justify-between">
@@ -209,27 +214,46 @@ function TeamCard({ canManage }: { canManage: boolean }) {
           <p className={`rounded-lg px-3 py-2 text-sm ${msg.ok ? "bg-brand-50 text-brand-700" : "bg-red-50 text-red-600"}`}>{msg.text}</p>
         )}
         <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-          {users.map((e) => (
-            <div key={e.id} className="flex items-center gap-3 rounded-xl border border-border p-3">
-              <UserAvatar name={e.name} color={e.avatarColor} />
-              <div className="min-w-0 flex-1">
-                <p className="truncate text-sm font-medium text-ink">{e.name}</p>
-                {canManage ? (
-                  <Select
-                    value={e.role}
-                    onChange={(ev) => changeRole(e.id, ev.target.value as RoleId)}
-                    className="mt-1 h-8 text-xs"
-                  >
-                    {ROLES.map((r) => (
-                      <option key={r.id} value={r.id}>{r.name}</option>
-                    ))}
-                  </Select>
-                ) : (
-                  <p className="truncate text-xs text-muted">{getRole(e.role).name}</p>
-                )}
+          {users.map((e) => {
+            const inactive = e.active === false;
+            return (
+              <div
+                key={e.id}
+                className={`flex items-center gap-3 rounded-xl border border-border p-3 ${inactive ? "opacity-60" : ""}`}
+              >
+                <UserAvatar name={e.name} color={e.avatarColor} />
+                <div className="min-w-0 flex-1">
+                  <div className="flex items-center gap-1.5">
+                    <p className="truncate text-sm font-medium text-ink">{e.name}</p>
+                    {inactive && <Badge variant="red">Выключен</Badge>}
+                  </div>
+                  {canManage ? (
+                    <div className="mt-1 flex items-center gap-1.5">
+                      <Select
+                        value={e.role}
+                        onChange={(ev) => changeRole(e.id, ev.target.value as RoleId)}
+                        className="h-8 text-xs"
+                      >
+                        {ROLES.map((r) => (
+                          <option key={r.id} value={r.id}>{r.name}</option>
+                        ))}
+                      </Select>
+                      <Button
+                        variant={inactive ? "outline" : "ghost"}
+                        size="iconSm"
+                        title={inactive ? "Включить" : "Выключить"}
+                        onClick={() => toggleActive(e.id, inactive)}
+                      >
+                        {inactive ? <UserCheck className="size-4 text-brand" /> : <UserX className="size-4 text-red-500" />}
+                      </Button>
+                    </div>
+                  ) : (
+                    <p className="truncate text-xs text-muted">{getRole(e.role).name}</p>
+                  )}
+                </div>
               </div>
-            </div>
-          ))}
+            );
+          })}
         </div>
       </CardContent>
 

@@ -50,7 +50,10 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
           // demo-аккаунты — из mock мгновенно; новые сотрудники — из БД
           let user = userById(savedSession);
           if (!user && getSupabase()) user = (await fetchUserById(savedSession)) ?? undefined;
-          if (active && user) setCurrentUser(user);
+          if (active) {
+            if (user && user.active !== false) setCurrentUser(user);
+            else if (user) localStorage.removeItem(SESSION_KEY); // деактивирован — выйти
+          }
         }
       } catch {
         /* ignore */
@@ -109,6 +112,10 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         let user: User | null = userByLogin(loginName);
         if (!user) user = await fetchUserByEmail(email);
         if (!user) return false;
+        if (user.active === false) {
+          await sb.auth.signOut();
+          return false; // сотрудник деактивирован
+        }
 
         finishLogin(user);
         return true;

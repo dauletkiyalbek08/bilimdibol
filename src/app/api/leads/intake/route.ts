@@ -86,12 +86,19 @@ export async function POST(req: Request) {
       }
     }
 
-    // ---- Пул хантеров из БД (все с ролью hunter), фолбэк на mock
-    const { data: hRows } = await admin.from("users").select("id, name").eq("role", "hunter");
-    const hunters: { id: string; name: string }[] =
-      hRows && hRows.length
-        ? hRows.map((h) => ({ id: h.id as string, name: h.name as string }))
-        : HUNTERS.map((h) => ({ id: h.id, name: h.name }));
+    // ---- Пул хантеров из БД (роль hunter, только активные), фолбэк на mock
+    let hunters: { id: string; name: string }[] = [];
+    const withActive = await admin.from("users").select("id, name, active").eq("role", "hunter");
+    if (!withActive.error && withActive.data) {
+      hunters = withActive.data
+        .filter((h) => (h as { active?: boolean }).active !== false)
+        .map((h) => ({ id: h.id as string, name: h.name as string }));
+    } else {
+      // колонки active ещё нет (миграция не применена)
+      const noActive = await admin.from("users").select("id, name").eq("role", "hunter");
+      hunters = (noActive.data ?? []).map((h) => ({ id: h.id as string, name: h.name as string }));
+    }
+    if (hunters.length === 0) hunters = HUNTERS.map((h) => ({ id: h.id, name: h.name }));
 
     // ---- Assignment: only hunters present today, balanced by current load
     const todayStart = new Date();
