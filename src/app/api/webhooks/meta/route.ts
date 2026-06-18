@@ -1,38 +1,87 @@
 import { NextResponse } from "next/server";
+import { ingestLead } from "@/lib/server/lead-intake";
 
 export const runtime = "nodejs";
+export const dynamic = "force-dynamic";
 
 const VERIFY_TOKEN = process.env.META_VERIFY_TOKEN || "bilimdibol-demo-verify-token";
+const GRAPH = "https://graph.facebook.com/v21.0";
 
-// Meta webhook verification (GET) — used by Meta to validate the endpoint.
+// Верификация webhook (Meta дёргает GET при подключении).
 export async function GET(req: Request) {
   const { searchParams } = new URL(req.url);
   const mode = searchParams.get("hub.mode");
   const token = searchParams.get("hub.verify_token");
   const challenge = searchParams.get("hub.challenge");
-
   if (mode === "subscribe" && token === VERIFY_TOKEN) {
     return new NextResponse(challenge ?? "", { status: 200 });
   }
   return NextResponse.json({ error: "Verification failed" }, { status: 403 });
 }
 
-// Incoming events (POST). In demo mode we just acknowledge and log shape.
+interface FieldDatum {
+  name: string;
+  values: string[];
+}
+
+function fieldVal(fields: FieldDatum[], keys: string[]): string {
+  for (const k of keys) {
+    const f = fields.find((x) => x.name?.toLowerCase() === k.toLowerCase());
+    if (f?.values?.[0]) return f.values[0];
+  }
+  return "";
+}
+
+// Входящие события Meta (Lead Ads → leadgen). Тянем данные лида через Graph API
+// и создаём лид в CRM той же логикой, что и формы (назначение, сделка, Telegram).
 export async function POST(req: Request) {
-  let body: unknown = null;
+  let body: {
+    entry?: { changes?: { field?: string; value?: { leadgen_id?: string; form_id?: string; ad_id?: string } }[] }[];
+  } = {};
   try {
     body = await req.json();
   } catch {
-    body = null;
+    return NextResponse.json({ received: true });
   }
 
-  const live = Boolean(process.env.META_PAGE_ACCESS_TOKEN);
-  // In a real integration we would parse entry[].messaging[] / changes[] here
-  // and route messages into the CRM. For the demo we only acknowledge.
-  return NextResponse.json({
-    received: true,
-    mode: live ? "live" : "mock",
-    note: live ? "Event accepted" : "Demo mode — no Meta token configured, event not processed",
-    hasPayload: body !== null,
-  });
+  const token = process.env.META_PAGE_ACCESS_TOKEN;
+  const leadgenEvents = (body.entry ?? [])
+    .flatMap((e) => e.changes ?? [])
+    .filter((c) => c.field === "leadgen" && c.value?.leadgen_id);
+
+  if (leadgenEvents.length === 0) {
+    return NextResponse.json({ received: true, note: "no leadgen events" });
+  }
+  if (!token) {
+    // Нет токена страницы — не можем дотянуть данные лида (demo).
+    return NextResponse.json({ received: true, mode: "mock", note: "META_PAGE_ACCESS_TOKEN не задан" });
+  }
+
+  let created = 0;
+  for (const ev of leadgenEvents) {
+    const leadgenId = ev.value!.leadgen_id!;
+    try {
+      const res = await fetch(`${GRAPH}/${leadgenId}?fields=field_data,created_time&access_token=${token}`);
+      if (!res.ok) continue;
+      const lead = (await res.json()) as { field_data?: FieldDatum[] };
+      const fields = lead.field_data ?? [];
+      const name = fieldVal(fields, ["full_name", "name", "имя", "имя_и_фамилия"]);
+      const phone = fieldVal(fields, ["phone_number", "phone", "телефон"]);
+      const email = fieldVal(fields, ["email", "почта"]);
+      const result = await ingestLead({
+        name,
+        phone,
+        email,
+        source: "Instagram",
+        comment: "Заявка из Meta Lead Ads",
+        utmCampaign: ev.value?.form_id || "",
+        creativeId: ev.value?.ad_id || "",
+      });
+      if (result.ok && !result.deduped) created++;
+    } catch {
+      /* пропускаем сбойный лид, остальные обрабатываем */
+    }
+  }
+
+  return NextResponse.json({ received: true, mode: "live", created });
 }
