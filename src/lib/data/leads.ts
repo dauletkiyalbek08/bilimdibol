@@ -91,6 +91,30 @@ export async function updateLeadStatus(id: string, status: LeadStatus): Promise<
   }
 }
 
+/** Переназначить лид на другого хантера — persists to Supabase when configured. */
+export async function updateLeadHunter(id: string, hunterId: string): Promise<void> {
+  const sb = getSupabase();
+  if (!sb) return;
+  try {
+    await sb.from("leads").update({ hunter_id: hunterId }).eq("id", id);
+    await sb.from("deals").update({ hunter_id: hunterId }).eq("lead_id", id);
+  } catch {
+    /* ignore in demo */
+  }
+}
+
+/** Удалить лид (и связанную сделку) — persists to Supabase when configured. */
+export async function deleteLead(id: string): Promise<void> {
+  const sb = getSupabase();
+  if (!sb) return;
+  try {
+    await sb.from("deals").delete().eq("lead_id", id);
+    await sb.from("leads").delete().eq("id", id);
+  } catch {
+    /* ignore in demo */
+  }
+}
+
 /** Update a lead's comment — persists to Supabase when configured. */
 export async function updateLeadComment(id: string, comment: string): Promise<void> {
   const sb = getSupabase();

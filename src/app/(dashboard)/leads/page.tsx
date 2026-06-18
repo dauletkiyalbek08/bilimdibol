@@ -11,10 +11,13 @@ import {
   X,
   Clock,
   Plus,
+  ArrowRightLeft,
+  Trash2,
 } from "lucide-react";
 import { useApp } from "@/lib/store";
-import { fetchLeads, updateLeadStatus, updateLeadComment, createLead } from "@/lib/data/leads";
+import { fetchLeads, updateLeadStatus, updateLeadComment, createLead, updateLeadHunter, deleteLead } from "@/lib/data/leads";
 import { HUNTERS, employeeName, SOURCES } from "@/lib/mock-data";
+import { fetchUsers } from "@/lib/data/users";
 import { LEAD_MAP } from "@/components/status-badge";
 import { PageHeader } from "@/components/page-header";
 import { RoleBasedGuard } from "@/components/role-based-guard";
@@ -40,7 +43,8 @@ export default function LeadsPage() {
 }
 
 function LeadsInner() {
-  const { range } = useApp();
+  const { range, role } = useApp();
+  const canManageLeads = role === "admin" || role === "rop";
   const [status, setStatus] = React.useState<string>("all");
   const [source, setSource] = React.useState<string>("all");
   const [hunter, setHunter] = React.useState<string>("all");
@@ -51,6 +55,9 @@ function LeadsInner() {
   const [leads, setLeads] = React.useState<Lead[]>([]);
   const [loading, setLoading] = React.useState(true);
   const [selectedId, setSelectedId] = React.useState<string | null>(null);
+  const [hunterList, setHunterList] = React.useState<{ id: string; name: string }[]>(
+    HUNTERS.map((h) => ({ id: h.id, name: h.name })),
+  );
 
   React.useEffect(() => {
     let active = true;
@@ -58,6 +65,12 @@ function LeadsInner() {
       if (active) {
         setLeads(rows);
         setLoading(false);
+      }
+    });
+    fetchUsers().then((us) => {
+      if (active) {
+        const hs = us.filter((u) => u.role === "hunter" && u.active !== false).map((u) => ({ id: u.id, name: u.name }));
+        if (hs.length) setHunterList(hs);
       }
     });
     return () => {
@@ -69,6 +82,8 @@ function LeadsInner() {
   const [commentModal, setCommentModal] = React.useState(false);
   const [trialModal, setTrialModal] = React.useState(false);
   const [createModal, setCreateModal] = React.useState(false);
+  const [hunterModal, setHunterModal] = React.useState(false);
+  const [deleteModal, setDeleteModal] = React.useState(false);
   const [commentDraft, setCommentDraft] = React.useState("");
   const [creating, setCreating] = React.useState(false);
   const [draft, setDraft] = React.useState({
@@ -109,6 +124,32 @@ function LeadsInner() {
     );
     void updateLeadStatus(id, next); // persists to Supabase when configured
     setStatusModal(false);
+  }
+
+  function reassignHunter(id: string, hunterId: string) {
+    setLeads((prev) =>
+      prev.map((l) =>
+        l.id === id
+          ? {
+              ...l,
+              hunterId,
+              history: [
+                { date: new Date().toISOString(), author: "Руководитель", text: `Лид переназначен на ${employeeName(hunterId)}` },
+                ...l.history,
+              ],
+            }
+          : l,
+      ),
+    );
+    void updateLeadHunter(id, hunterId);
+    setHunterModal(false);
+  }
+
+  function removeLead(id: string) {
+    setLeads((prev) => prev.filter((l) => l.id !== id));
+    setSelectedId(null);
+    void deleteLead(id);
+    setDeleteModal(false);
   }
 
   function addComment(id: string, text: string) {
@@ -304,6 +345,16 @@ function LeadsInner() {
                       <MessageSquarePlus /> Комментарий
                     </Button>
                   </div>
+                  {canManageLeads && (
+                    <div className="grid grid-cols-2 gap-2">
+                      <Button variant="outline" onClick={() => setHunterModal(true)}>
+                        <ArrowRightLeft /> Сменить хантера
+                      </Button>
+                      <Button variant="danger" onClick={() => setDeleteModal(true)}>
+                        <Trash2 /> Удалить лид
+                      </Button>
+                    </div>
+                  )}
                 </div>
 
                 <div>
@@ -378,6 +429,46 @@ function LeadsInner() {
           </div>
         </div>
       </Modal>
+
+      {/* Reassign hunter modal */}
+      {selected && (
+        <Modal open={hunterModal} onClose={() => setHunterModal(false)} title="Сменить хантера" description={selected.name}>
+          <div className="grid grid-cols-2 gap-2">
+            {hunterList.map((h) => (
+              <button
+                key={h.id}
+                onClick={() => reassignHunter(selected.id, h.id)}
+                className="flex items-center justify-between rounded-lg border border-border px-3 py-2.5 text-left text-sm hover:border-brand hover:bg-brand-50"
+              >
+                {h.name}
+                {selected.hunterId === h.id && <span className="text-xs text-brand">текущий</span>}
+              </button>
+            ))}
+          </div>
+        </Modal>
+      )}
+
+      {/* Delete lead modal */}
+      {selected && (
+        <Modal
+          open={deleteModal}
+          onClose={() => setDeleteModal(false)}
+          title="Удалить лид?"
+          description={`${selected.name} · ${selected.phone}`}
+          footer={
+            <>
+              <Button variant="ghost" onClick={() => setDeleteModal(false)}>Отмена</Button>
+              <Button variant="danger" onClick={() => removeLead(selected.id)}>
+                <Trash2 /> Удалить
+              </Button>
+            </>
+          }
+        >
+          <p className="text-sm text-muted">
+            Лид и связанная сделка будут удалены без возможности восстановления.
+          </p>
+        </Modal>
+      )}
 
       {/* Status modal */}
       {selected && (
