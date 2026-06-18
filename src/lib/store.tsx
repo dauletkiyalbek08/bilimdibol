@@ -1,12 +1,13 @@
 "use client";
 
-import React, { createContext, useContext, useEffect, useState, useCallback, useMemo } from "react";
+import React, { createContext, useContext, useEffect, useState, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import type { DateRange, DateRangePreset, RoleId, User } from "./types";
 import { buildRange, DEFAULT_RANGE } from "./date-range";
 import { EMPLOYEES } from "./mock-data";
 import { authenticate, userById, userByLogin } from "./auth";
 import { getSupabase } from "./supabase/client";
+import { fetchUserById, fetchUserByEmail } from "./data/users";
 
 const SESSION_KEY = "bilimdibol.session"; // stores userId
 const RANGE_KEY = "bilimdibol.range";
@@ -17,10 +18,8 @@ interface AppState {
   role: RoleId;
   currentUserName: string;
   isAuthed: boolean;
-  /** Login by credentials. Verifies via Supabase Auth when configured, else mock. */
   login: (login: string, password: string) => Promise<boolean>;
   logout: () => void;
-  /** Demo helper kept for compatibility (switches to first user of role). */
   setRole: (r: RoleId) => void;
   range: DateRange;
   setPreset: (p: DateRangePreset) => void;
@@ -32,70 +31,102 @@ const AppContext = createContext<AppState | null>(null);
 
 export function AppProvider({ children }: { children: React.ReactNode }) {
   const router = useRouter();
-  const [userId, setUserId] = useState<string | null>(null);
+  const [currentUser, setCurrentUser] = useState<User | null>(null);
   const [range, setRange] = useState<DateRange>(DEFAULT_RANGE);
   const [hydrated, setHydrated] = useState(false);
 
   // Hydrate from localStorage once on mount
   useEffect(() => {
-    try {
-      const savedSession = localStorage.getItem(SESSION_KEY);
-      const savedRange = localStorage.getItem(RANGE_KEY);
-      if (savedSession && userById(savedSession)) setUserId(savedSession);
-      if (savedRange) {
-        const preset = savedRange as DateRangePreset;
-        if (preset !== "custom") setRange(buildRange(preset));
+    let active = true;
+    (async () => {
+      try {
+        const savedSession = localStorage.getItem(SESSION_KEY);
+        const savedRange = localStorage.getItem(RANGE_KEY);
+        if (savedRange) {
+          const preset = savedRange as DateRangePreset;
+          if (preset !== "custom") setRange(buildRange(preset));
+        }
+        if (savedSession) {
+          // demo-аккаунты — из mock мгновенно; новые сотрудники — из БД
+          let user = userById(savedSession);
+          if (!user && getSupabase()) user = (await fetchUserById(savedSession)) ?? undefined;
+          if (active && user) setCurrentUser(user);
+        }
+      } catch {
+        /* ignore */
       }
-    } catch {
-      /* ignore */
-    }
-    setHydrated(true);
+      if (active) setHydrated(true);
+    })();
+    return () => {
+      active = false;
+    };
   }, []);
 
-  const currentUser = useMemo(() => (userId ? userById(userId) ?? null : null), [userId]);
   const role: RoleId = currentUser?.role ?? "admin";
   const currentUserName = currentUser?.name ?? "Гость";
   const isAuthed = !!currentUser;
 
-  const login = useCallback(
-    async (loginName: string, password: string): Promise<boolean> => {
-      const sb = getSupabase();
-
-      if (sb) {
-        // Real auth path: map login → email, verify password via Supabase Auth.
-        const user = userByLogin(loginName);
-        if (!user?.email) return false;
-        const { error } = await sb.auth.signInWithPassword({ email: user.email, password });
-        if (error) return false;
-        setUserId(user.id);
-        try {
-          localStorage.setItem(SESSION_KEY, user.id);
-        } catch {
-          /* ignore */
-        }
-        router.push("/dashboard");
-        return true;
-      }
-
-      // Mock path (no Supabase configured).
-      const user = authenticate(loginName, password);
-      if (!user) return false;
-      setUserId(user.id);
+  const finishLogin = useCallback(
+    (user: User) => {
+      setCurrentUser(user);
       try {
         localStorage.setItem(SESSION_KEY, user.id);
       } catch {
         /* ignore */
       }
       router.push("/dashboard");
-      return true;
     },
     [router],
+  );
+
+  const login = useCallback(
+    async (loginName: string, password: string): Promise<boolean> => {
+      const sb = getSupabase();
+
+      if (sb) {
+        // 1. login → email (demo из mock, иначе резолв из БД через сервер)
+        let email = userByLogin(loginName)?.email ?? null;
+        if (!email) {
+          try {
+            const res = await fetch("/api/auth/resolve", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ login: loginName }),
+            });
+            const j = await res.json();
+            email = j.email ?? null;
+          } catch {
+            email = null;
+          }
+        }
+        if (!email) return false;
+
+        // 2. проверка пароля через Supabase Auth
+        const { error } = await sb.auth.signInWithPassword({ email, password });
+        if (error) return false;
+
+        // 3. идентичность: demo из mock, иначе из БД
+        let user: User | null = userByLogin(loginName);
+        if (!user) user = await fetchUserByEmail(email);
+        if (!user) return false;
+
+        finishLogin(user);
+        return true;
+      }
+
+      // mock-режим (без Supabase)
+      const user = authenticate(loginName, password);
+      if (!user) return false;
+      finishLogin(user);
+      return true;
+    },
+    [finishLogin],
   );
 
   const setRole = useCallback((r: RoleId) => {
     const user = EMPLOYEES.find((e) => e.role === r);
     if (!user) return;
-    setUserId(user.id);
+    setCurrentUser(user);
     try {
       localStorage.setItem(SESSION_KEY, user.id);
     } catch {
@@ -104,7 +135,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   const logout = useCallback(() => {
-    setUserId(null);
+    setCurrentUser(null);
     try {
       localStorage.removeItem(SESSION_KEY);
       getSupabase()?.auth.signOut();
@@ -131,7 +162,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   return (
     <AppContext.Provider
       value={{
-        userId,
+        userId: currentUser?.id ?? null,
         currentUser,
         role,
         currentUserName,

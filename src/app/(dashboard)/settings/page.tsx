@@ -1,10 +1,10 @@
 "use client";
 
 import * as React from "react";
-import { Building2, Bell, Plug, Users, Globe, Check, MapPin, Crosshair } from "lucide-react";
+import { Building2, Bell, Plug, Users, Globe, Check, MapPin, Crosshair, Plus } from "lucide-react";
 import { useApp } from "@/lib/store";
-import { getRole, PROJECT } from "@/lib/roles";
-import { EMPLOYEES } from "@/lib/mock-data";
+import { getRole, PROJECT, ROLES } from "@/lib/roles";
+import { fetchUsers, updateUserRole } from "@/lib/data/users";
 import { fetchOfficeSettings, saveOfficeSettings } from "@/lib/data/settings";
 import { PageHeader } from "@/components/page-header";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
@@ -13,7 +13,9 @@ import { Select } from "@/components/ui/select";
 import { Switch } from "@/components/ui/switch";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { Modal } from "@/components/ui/modal";
 import { UserAvatar } from "@/components/user-avatar";
+import type { User, RoleId } from "@/lib/types";
 
 const INTEGRATIONS = [
   { name: "Supabase", desc: "База данных и аутентификация", status: "Не подключено" },
@@ -137,26 +139,142 @@ export default function SettingsPage() {
       {role === "admin" && <OfficeGeoCard />}
 
       {/* Team */}
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2"><Globe className="size-4.5 text-brand" /> Команда</CardTitle>
-          <CardDescription>{EMPLOYEES.length} сотрудников в проекте</CardDescription>
-        </CardHeader>
-        <CardContent>
-          <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-            {EMPLOYEES.map((e) => (
-              <div key={e.id} className="flex items-center gap-3 rounded-xl border border-border p-3">
-                <UserAvatar name={e.name} color={e.avatarColor} />
-                <div className="min-w-0">
-                  <p className="truncate text-sm font-medium text-ink">{e.name}</p>
-                  <p className="truncate text-xs text-muted">{getRole(e.role).name}</p>
-                </div>
-              </div>
-            ))}
-          </div>
-        </CardContent>
-      </Card>
+      <TeamCard canManage={role === "admin"} />
     </div>
+  );
+}
+
+function TeamCard({ canManage }: { canManage: boolean }) {
+  const [users, setUsers] = React.useState<User[]>([]);
+  const [open, setOpen] = React.useState(false);
+  const [busy, setBusy] = React.useState(false);
+  const [msg, setMsg] = React.useState<{ ok: boolean; text: string } | null>(null);
+  const empty = { name: "", login: "", email: "", password: "", role: "hunter" as RoleId };
+  const [form, setForm] = React.useState(empty);
+
+  const load = React.useCallback(() => {
+    fetchUsers().then(setUsers);
+  }, []);
+  React.useEffect(() => {
+    load();
+  }, [load]);
+
+  async function add() {
+    if (!form.name || !form.login || !form.email || !form.password) {
+      setMsg({ ok: false, text: "Заполните все поля" });
+      return;
+    }
+    setBusy(true);
+    try {
+      const res = await fetch("/api/team/create", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(form),
+      });
+      const j = await res.json();
+      if (j.ok) {
+        setMsg({ ok: true, text: `Сотрудник добавлен. Вход: ${form.login}` });
+        setOpen(false);
+        setForm(empty);
+        load();
+      } else {
+        setMsg({ ok: false, text: j.error || "Не удалось добавить" });
+      }
+    } catch {
+      setMsg({ ok: false, text: "Ошибка сети" });
+    }
+    setBusy(false);
+  }
+
+  async function changeRole(id: string, newRole: RoleId) {
+    setUsers((prev) => prev.map((u) => (u.id === id ? { ...u, role: newRole } : u)));
+    await updateUserRole(id, newRole);
+  }
+
+  return (
+    <Card>
+      <CardHeader className="flex-row items-start justify-between">
+        <div>
+          <CardTitle className="flex items-center gap-2"><Globe className="size-4.5 text-brand" /> Команда</CardTitle>
+          <CardDescription>{users.length} сотрудников в проекте</CardDescription>
+        </div>
+        {canManage && (
+          <Button onClick={() => setOpen(true)}>
+            <Plus /> Добавить сотрудника
+          </Button>
+        )}
+      </CardHeader>
+      <CardContent className="space-y-3">
+        {msg && (
+          <p className={`rounded-lg px-3 py-2 text-sm ${msg.ok ? "bg-brand-50 text-brand-700" : "bg-red-50 text-red-600"}`}>{msg.text}</p>
+        )}
+        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+          {users.map((e) => (
+            <div key={e.id} className="flex items-center gap-3 rounded-xl border border-border p-3">
+              <UserAvatar name={e.name} color={e.avatarColor} />
+              <div className="min-w-0 flex-1">
+                <p className="truncate text-sm font-medium text-ink">{e.name}</p>
+                {canManage ? (
+                  <Select
+                    value={e.role}
+                    onChange={(ev) => changeRole(e.id, ev.target.value as RoleId)}
+                    className="mt-1 h-8 text-xs"
+                  >
+                    {ROLES.map((r) => (
+                      <option key={r.id} value={r.id}>{r.name}</option>
+                    ))}
+                  </Select>
+                ) : (
+                  <p className="truncate text-xs text-muted">{getRole(e.role).name}</p>
+                )}
+              </div>
+            </div>
+          ))}
+        </div>
+      </CardContent>
+
+      {canManage && (
+        <Modal
+          open={open}
+          onClose={() => setOpen(false)}
+          title="Новый сотрудник"
+          description="Создаётся аккаунт для входа и профиль в команде"
+          footer={
+            <>
+              <Button variant="ghost" onClick={() => setOpen(false)}>Отмена</Button>
+              <Button onClick={add} disabled={busy}>{busy ? "Создание…" : "Создать"}</Button>
+            </>
+          }
+        >
+          <div className="grid gap-3 sm:grid-cols-2">
+            <div className="sm:col-span-2">
+              <label className="mb-1 block text-xs font-medium text-muted">Имя</label>
+              <Input value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} placeholder="Напр. Асель К." />
+            </div>
+            <div>
+              <label className="mb-1 block text-xs font-medium text-muted">Логин</label>
+              <Input value={form.login} onChange={(e) => setForm({ ...form, login: e.target.value })} placeholder="hunter4" />
+            </div>
+            <div>
+              <label className="mb-1 block text-xs font-medium text-muted">Роль</label>
+              <Select value={form.role} onChange={(e) => setForm({ ...form, role: e.target.value as RoleId })}>
+                {ROLES.map((r) => (
+                  <option key={r.id} value={r.id}>{r.name}</option>
+                ))}
+              </Select>
+            </div>
+            <div>
+              <label className="mb-1 block text-xs font-medium text-muted">Email</label>
+              <Input type="email" value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} placeholder="asel@bilimdibol.kz" />
+            </div>
+            <div>
+              <label className="mb-1 block text-xs font-medium text-muted">Пароль</label>
+              <Input value={form.password} onChange={(e) => setForm({ ...form, password: e.target.value })} placeholder="мин. 6 символов" />
+            </div>
+          </div>
+        </Modal>
+      )}
+    </Card>
   );
 }
 
