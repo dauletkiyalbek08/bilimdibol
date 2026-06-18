@@ -3,8 +3,8 @@
 // либо задай через env: NEXT_PUBLIC_OFFICE_LAT / NEXT_PUBLIC_OFFICE_LNG / NEXT_PUBLIC_OFFICE_RADIUS.
 
 export const OFFICE = {
-  lat: Number(process.env.NEXT_PUBLIC_OFFICE_LAT ?? 43.238949), // placeholder: Алматы (заменить!)
-  lng: Number(process.env.NEXT_PUBLIC_OFFICE_LNG ?? 76.889709),
+  lat: Number(process.env.NEXT_PUBLIC_OFFICE_LAT ?? 43.32329), // офис (тест)
+  lng: Number(process.env.NEXT_PUBLIC_OFFICE_LNG ?? 77.016375),
   radiusM: Number(process.env.NEXT_PUBLIC_OFFICE_RADIUS ?? 250), // радиус «в офисе», метры
 };
 
