@@ -106,8 +106,11 @@ export async function POST(req: Request) {
     let candidates = HUNTERS.filter((h) => presentIds.has(h.id));
     if (candidates.length === 0) candidates = HUNTERS; // никого нет на смене → всем по кругу
 
-    // least-loaded among candidates
-    const { data: leadRows } = await admin.from("leads").select("hunter_id");
+    // least-loaded among candidates — по СЕГОДНЯШНИМ лидам
+    const { data: leadRows } = await admin
+      .from("leads")
+      .select("hunter_id")
+      .gte("created_at", todayStart.toISOString());
     const load = new Map<string, number>();
     for (const l of leadRows ?? []) {
       const hid = (l as { hunter_id: string | null }).hunter_id;
