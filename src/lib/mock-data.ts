@@ -79,8 +79,18 @@ export const EMPLOYEES: User[] = [
 export const HUNTERS = EMPLOYEES.filter((e) => e.role === "hunter");
 export const MANAGERS = EMPLOYEES.filter((e) => e.role === "manager");
 
+// Реестр имён: стартует с демо-сотрудников, дополняется реальными из БД
+// (через registerEmployees), чтобы имена резолвились по всему приложению.
+const nameRegistry = new Map<string, string>(EMPLOYEES.map((e) => [e.id, e.name]));
+
+export function registerEmployees(list: { id: string; name: string }[]): void {
+  for (const u of list) {
+    if (u?.id && u.name) nameRegistry.set(u.id, u.name);
+  }
+}
+
 export function employeeName(id: string): string {
-  return EMPLOYEES.find((e) => e.id === id)?.name ?? "—";
+  return nameRegistry.get(id) ?? "—";
 }
 export function employeeById(id: string): User | undefined {
   return EMPLOYEES.find((e) => e.id === id);

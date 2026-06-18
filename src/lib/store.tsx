@@ -4,10 +4,10 @@ import React, { createContext, useContext, useEffect, useState, useCallback } fr
 import { useRouter } from "next/navigation";
 import type { DateRange, DateRangePreset, RoleId, User } from "./types";
 import { buildRange, DEFAULT_RANGE } from "./date-range";
-import { EMPLOYEES } from "./mock-data";
+import { EMPLOYEES, registerEmployees } from "./mock-data";
 import { authenticate, userById, userByLogin } from "./auth";
 import { getSupabase } from "./supabase/client";
-import { fetchUserById, fetchUserByEmail } from "./data/users";
+import { fetchUserById, fetchUserByEmail, fetchUsers } from "./data/users";
 
 const SESSION_KEY = "bilimdibol.session"; // stores userId
 const RANGE_KEY = "bilimdibol.range";
@@ -68,6 +68,17 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   const role: RoleId = currentUser?.role ?? "admin";
   const currentUserName = currentUser?.name ?? "Гость";
   const isAuthed = !!currentUser;
+
+  // Подгружаем всех сотрудников из БД в реестр имён (чтобы имена резолвились
+  // по всему приложению, включая реально добавленных хантеров/менеджеров).
+  const [, setEmployeesVersion] = useState(0);
+  useEffect(() => {
+    if (!isAuthed || !getSupabase()) return;
+    fetchUsers().then((us) => {
+      registerEmployees(us);
+      setEmployeesVersion((v) => v + 1); // форсим перерисовку с новыми именами
+    });
+  }, [isAuthed]);
 
   const finishLogin = useCallback(
     (user: User) => {
