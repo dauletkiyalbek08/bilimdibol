@@ -91,11 +91,16 @@ export async function POST(req: Request) {
     todayStart.setHours(0, 0, 0, 0);
     const { data: att } = await admin
       .from("attendance")
-      .select("employee_id, status, date")
+      .select("employee_id, status, date, check_out")
       .gte("date", todayStart.toISOString());
+    // Присутствует = отметился сегодня (Вовремя/Опоздал/Удалённо) И ещё НЕ ушёл (check_out пуст)
     const presentIds = new Set(
       (att ?? [])
-        .filter((a) => ["on_time", "late", "remote"].includes(a.status as string))
+        .filter(
+          (a) =>
+            ["on_time", "late", "remote"].includes(a.status as string) &&
+            !(a as { check_out: string | null }).check_out,
+        )
         .map((a) => a.employee_id as string),
     );
     let candidates = HUNTERS.filter((h) => presentIds.has(h.id));
