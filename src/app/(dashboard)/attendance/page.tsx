@@ -33,7 +33,7 @@ export default function AttendancePage() {
 }
 
 function AttendanceInner() {
-  const { range, currentUser } = useApp();
+  const { range, currentUser, role } = useApp();
   const [records, setRecords] = React.useState<AttendanceRecord[]>([]);
   const [statusFilter, setStatusFilter] = React.useState("all");
   const [checkedIn, setCheckedIn] = React.useState(false);
@@ -52,11 +52,16 @@ function AttendanceInner() {
 
   const me = currentUser ?? EMPLOYEES[0];
 
-  const filtered = records.filter((r) => statusFilter === "all" || r.status === statusFilter);
+  // Приватность: всю команду видят только руководитель/бухгалтер/админ.
+  // Остальные видят только свои отметки.
+  const canSeeAll = role === "admin" || role === "accountant" || role === "rop";
+  const visible = canSeeAll ? records : records.filter((r) => r.employeeId === me.id);
 
-  const onTime = records.filter((r) => r.status === "on_time").length;
-  const late = records.filter((r) => r.status === "late").length;
-  const remote = records.filter((r) => r.status === "remote").length;
+  const filtered = visible.filter((r) => statusFilter === "all" || r.status === statusFilter);
+
+  const onTime = visible.filter((r) => r.status === "on_time").length;
+  const late = visible.filter((r) => r.status === "late").length;
+  const remote = visible.filter((r) => r.status === "remote").length;
   const present = onTime + late + remote;
 
   async function checkIn() {
@@ -119,8 +124,11 @@ function AttendanceInner() {
 
   return (
     <div className="space-y-6">
-      <PageHeader title="Посещаемость" description={`Учёт рабочего времени · ${range.label}`}>
-        <ExportButton />
+      <PageHeader
+        title="Посещаемость"
+        description={canSeeAll ? `Учёт рабочего времени · вся команда · ${range.label}` : `Моя посещаемость · ${range.label}`}
+      >
+        {canSeeAll && <ExportButton />}
       </PageHeader>
 
       <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
@@ -160,7 +168,7 @@ function AttendanceInner() {
 
       <Card>
         <CardHeader className="flex-row items-center justify-between">
-          <CardTitle>Журнал посещаемости</CardTitle>
+          <CardTitle>{canSeeAll ? "Журнал посещаемости (команда)" : "Мои отметки"}</CardTitle>
           <Select value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)} className="w-44">
             <option value="all">Все статусы</option>
             {Object.entries(ATTENDANCE_MAP).map(([key, v]) => (
