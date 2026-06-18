@@ -221,6 +221,8 @@ export interface AttendanceRecord {
   checkOut?: string;
   status: AttendanceStatus;
   comment: string;
+  lat?: number;
+  lng?: number;
 }
 
 // ---------- Contracts ----------

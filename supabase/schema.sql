@@ -283,7 +283,9 @@ create table if not exists attendance (
   check_in text,
   check_out text,
   status text default 'on_time', -- on_time | late | absent | remote | day_off
-  comment text
+  comment text,
+  lat numeric,   -- координаты отметки прихода (геозона офиса)
+  lng numeric
 );
 
 -- ---------- contracts (договоры) ----------

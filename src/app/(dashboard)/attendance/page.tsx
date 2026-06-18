@@ -1,10 +1,11 @@
 "use client";
 
 import * as React from "react";
-import { LogIn, LogOut, Clock, CheckCircle2, Users } from "lucide-react";
+import { LogIn, LogOut, Clock, CheckCircle2, Users, MapPin } from "lucide-react";
 import { useApp } from "@/lib/store";
 import { EMPLOYEES } from "@/lib/mock-data";
 import { fetchAttendance, checkIn as dbCheckIn, checkOut as dbCheckOut } from "@/lib/data/attendance";
+import { OFFICE, distanceM } from "@/lib/geo";
 import { getRole } from "@/lib/roles";
 import { ATTENDANCE_MAP } from "@/components/status-badge";
 import { PageHeader } from "@/components/page-header";
@@ -39,6 +40,8 @@ function AttendanceInner() {
   const [checkedIn, setCheckedIn] = React.useState(false);
   const [myCheckIn, setMyCheckIn] = React.useState<string | null>(null);
   const [myCheckOut, setMyCheckOut] = React.useState<string | null>(null);
+  const [locating, setLocating] = React.useState(false);
+  const [geoMsg, setGeoMsg] = React.useState<{ ok: boolean; text: string } | null>(null);
 
   React.useEffect(() => {
     let active = true;
@@ -65,10 +68,41 @@ function AttendanceInner() {
   const present = onTime + late + remote;
 
   async function checkIn() {
+    setGeoMsg(null);
+    setLocating(true);
+    // 1. Определяем геолокацию
+    let pos: GeolocationPosition;
+    try {
+      pos = await new Promise<GeolocationPosition>((resolve, reject) => {
+        if (!navigator.geolocation) return reject(new Error("no geo"));
+        navigator.geolocation.getCurrentPosition(resolve, reject, {
+          enableHighAccuracy: true,
+          timeout: 10000,
+          maximumAge: 0,
+        });
+      });
+    } catch {
+      setLocating(false);
+      setGeoMsg({ ok: false, text: "Не удалось определить геолокацию. Разрешите доступ к местоположению в браузере и попробуйте снова." });
+      return;
+    }
+    const lat = pos.coords.latitude;
+    const lng = pos.coords.longitude;
+    const dist = distanceM(lat, lng, OFFICE.lat, OFFICE.lng);
+    setLocating(false);
+
+    // 2. Проверяем геозону офиса
+    if (dist > OFFICE.radiusM) {
+      setGeoMsg({ ok: false, text: `Вы не в офисе (≈${dist} м от точки). Отметка прихода доступна только в офисе.` });
+      return;
+    }
+
+    // 3. В офисе — отмечаем
     const t = nowTime();
     setCheckedIn(true);
     setMyCheckIn(t);
     setMyCheckOut(null);
+    setGeoMsg({ ok: true, text: `Вы в офисе (≈${dist} м). Отметка прихода принята.` });
     setRecords((prev) => [
       {
         id: `att-me-${Date.now()}`,
@@ -78,11 +112,13 @@ function AttendanceInner() {
         date: new Date().toISOString(),
         checkIn: t,
         status: "on_time",
-        comment: "Отметка прихода",
+        comment: "Отметка прихода · 📍 в офисе",
+        lat,
+        lng,
       },
       ...prev,
     ]);
-    const ok = await dbCheckIn(me.id); // персист в Supabase
+    const ok = await dbCheckIn(me.id, { lat, lng }); // персист в Supabase
     if (ok) fetchAttendance().then(setRecords);
   }
 
@@ -142,27 +178,38 @@ function AttendanceInner() {
       <Card>
         <CardHeader>
           <CardTitle>Отметка времени</CardTitle>
-          <CardDescription>Отметьте приход и уход — обновляет таблицу ниже</CardDescription>
+          <CardDescription>«Пришёл» доступен только в офисе — проверяется по геолокации</CardDescription>
         </CardHeader>
-        <CardContent className="flex flex-col items-start gap-4 sm:flex-row sm:items-center sm:justify-between">
-          <div className="flex items-center gap-3">
-            <UserAvatar name={me.name} color={me.avatarColor} size="lg" />
-            <div>
-              <p className="font-semibold text-ink">{me.name}</p>
-              <p className="text-sm text-muted">
-                {myCheckIn ? `Приход: ${myCheckIn}` : "Ещё не отметились"}
-                {myCheckOut && ` · Уход: ${myCheckOut}`}
-              </p>
+        <CardContent className="space-y-3">
+          <div className="flex flex-col items-start gap-4 sm:flex-row sm:items-center sm:justify-between">
+            <div className="flex items-center gap-3">
+              <UserAvatar name={me.name} color={me.avatarColor} size="lg" />
+              <div>
+                <p className="font-semibold text-ink">{me.name}</p>
+                <p className="text-sm text-muted">
+                  {myCheckIn ? `Приход: ${myCheckIn}` : "Ещё не отметились"}
+                  {myCheckOut && ` · Уход: ${myCheckOut}`}
+                </p>
+              </div>
+            </div>
+            <div className="flex gap-2">
+              <Button onClick={checkIn} disabled={checkedIn || locating}>
+                <LogIn /> {locating ? "Определяем геолокацию…" : "Пришёл"}
+              </Button>
+              <Button variant="outline" onClick={checkOut} disabled={!checkedIn}>
+                <LogOut /> Ушёл
+              </Button>
             </div>
           </div>
-          <div className="flex gap-2">
-            <Button onClick={checkIn} disabled={checkedIn}>
-              <LogIn /> Пришёл
-            </Button>
-            <Button variant="outline" onClick={checkOut} disabled={!checkedIn}>
-              <LogOut /> Ушёл
-            </Button>
-          </div>
+          {geoMsg && (
+            <p
+              className={`flex items-center gap-1.5 rounded-lg px-3 py-2 text-sm ${
+                geoMsg.ok ? "bg-brand-50 text-brand-700" : "bg-red-50 text-red-600"
+              }`}
+            >
+              <MapPin className="size-4 shrink-0" /> {geoMsg.text}
+            </p>
+          )}
         </CardContent>
       </Card>
 

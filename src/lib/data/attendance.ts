@@ -11,6 +11,8 @@ interface AttendanceRow {
   check_out: string | null;
   status: string | null;
   comment: string | null;
+  lat: number | null;
+  lng: number | null;
   users?: { name: string | null; role: string | null } | null;
 }
 
@@ -25,6 +27,8 @@ function mapRow(r: AttendanceRow): AttendanceRecord {
     checkOut: r.check_out ?? undefined,
     status: (r.status as AttendanceStatus) ?? "on_time",
     comment: r.comment ?? "",
+    lat: r.lat ?? undefined,
+    lng: r.lng ?? undefined,
   };
 }
 
@@ -48,20 +52,31 @@ function nowHHMM(): string {
 }
 
 /** Mark the current user as present (check-in). Persists to Supabase when configured. */
-export async function checkIn(userId: string): Promise<boolean> {
+export async function checkIn(
+  userId: string,
+  coords?: { lat: number; lng: number },
+): Promise<boolean> {
   const sb = getSupabase();
   if (!sb) return false;
   const d = new Date();
   const late = d.getHours() > 9 || (d.getHours() === 9 && d.getMinutes() > 10); // позже 09:10
+  const base = {
+    employee_id: userId,
+    date: d.toISOString(),
+    check_in: nowHHMM(),
+    status: late ? "late" : "on_time",
+    comment: late ? "Отметка прихода (опоздание) · 📍 в офисе" : "Отметка прихода · 📍 в офисе",
+  };
   try {
     const { error } = await sb.from("attendance").insert({
-      employee_id: userId,
-      date: d.toISOString(),
-      check_in: nowHHMM(),
-      status: late ? "late" : "on_time",
-      comment: late ? "Отметка прихода (опоздание)" : "Отметка прихода",
+      ...base,
+      lat: coords?.lat ?? null,
+      lng: coords?.lng ?? null,
     });
-    return !error;
+    if (!error) return true;
+    // Колонок lat/lng ещё нет (миграция не применена) — пишем без геоданных
+    const { error: e2 } = await sb.from("attendance").insert(base);
+    return !e2;
   } catch {
     return false;
   }
