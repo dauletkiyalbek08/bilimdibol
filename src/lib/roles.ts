@@ -146,6 +146,7 @@ export const ROLE_PAGES: Record<RoleId, PageKey[]> = {
     "calls",
     "hunter",
     "managers",
+    "attendance",
     "reports",
     "settings",
   ],
@@ -157,11 +158,12 @@ export const ROLE_PAGES: Record<RoleId, PageKey[]> = {
     "resources",
     "ai-studio",
     "marketing",
+    "attendance",
     "reports",
     "settings",
   ],
-  hunter: ["dashboard", "leads", "crm", "trials", "calls", "hunter", "settings"],
-  manager: ["dashboard", "crm", "trials", "sales", "clients", "calls", "managers", "settings"],
+  hunter: ["dashboard", "leads", "crm", "trials", "calls", "hunter", "attendance", "settings"],
+  manager: ["dashboard", "crm", "trials", "sales", "clients", "calls", "managers", "attendance", "settings"],
   accountant: [
     "dashboard",
     "sales",
@@ -172,7 +174,7 @@ export const ROLE_PAGES: Record<RoleId, PageKey[]> = {
     "reports",
     "settings",
   ],
-  content: ["dashboard", "ai-studio", "resources", "smm", "creatives", "settings"],
+  content: ["dashboard", "ai-studio", "resources", "smm", "creatives", "attendance", "settings"],
   marketer: [
     "dashboard",
     "marketing",
@@ -181,10 +183,11 @@ export const ROLE_PAGES: Record<RoleId, PageKey[]> = {
     "resources",
     "capi",
     "smm",
+    "attendance",
     "reports",
     "settings",
   ],
-  smm: ["dashboard", "smm", "chatbot", "resources", "creatives", "settings"],
+  smm: ["dashboard", "smm", "chatbot", "resources", "creatives", "attendance", "settings"],
 };
 
 export function canAccess(role: RoleId, page: PageKey): boolean {
