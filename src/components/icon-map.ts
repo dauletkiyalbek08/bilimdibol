@@ -24,6 +24,7 @@ import {
   Instagram,
   Bot,
   Plug,
+  CalendarClock,
   type LucideIcon,
 } from "lucide-react";
 
@@ -53,4 +54,5 @@ export const ICONS: Record<string, LucideIcon> = {
   Instagram,
   Bot,
   Plug,
+  CalendarClock,
 };

@@ -88,6 +88,7 @@ export type PageKey =
   | "finance"
   | "payroll"
   | "attendance"
+  | "schedules"
   | "contracts"
   | "resources"
   | "ai-studio"
@@ -125,6 +126,7 @@ export const NAV_ITEMS: NavItem[] = [
   { key: "finance", label: "Финансы", href: "/finance", icon: "Wallet", group: "finance" },
   { key: "payroll", label: "Зарплаты", href: "/payroll", icon: "Banknote", group: "finance" },
   { key: "attendance", label: "Посещаемость", href: "/attendance", icon: "Clock", group: "finance" },
+  { key: "schedules", label: "Графики работы", href: "/schedules", icon: "CalendarClock", group: "finance" },
   { key: "contracts", label: "Договоры", href: "/contracts", icon: "FileText", group: "finance" },
   { key: "reports", label: "Отчёты", href: "/reports", icon: "BarChart3", group: "system" },
   { key: "settings", label: "Настройки", href: "/settings", icon: "Settings", group: "system" },
@@ -147,6 +149,7 @@ export const ROLE_PAGES: Record<RoleId, PageKey[]> = {
     "hunter",
     "managers",
     "attendance",
+    "schedules",
     "reports",
     "settings",
   ],
@@ -184,11 +187,23 @@ export const ROLE_PAGES: Record<RoleId, PageKey[]> = {
     "capi",
     "smm",
     "attendance",
+    "schedules",
     "reports",
     "settings",
   ],
   smm: ["dashboard", "smm", "chatbot", "resources", "creatives", "attendance", "settings"],
 };
+
+// Кто кому назначает график (и роли вообще)
+export const MANAGES: Partial<Record<RoleId, RoleId[]>> = {
+  admin: ["admin", "rop", "target", "hunter", "manager", "accountant", "content", "marketer", "smm"],
+  rop: ["hunter", "manager"],
+  marketer: ["target", "smm", "content"],
+};
+
+export function canManageRole(actor: RoleId, target: RoleId): boolean {
+  return MANAGES[actor]?.includes(target) ?? false;
+}
 
 export function canAccess(role: RoleId, page: PageKey): boolean {
   return ROLE_PAGES[role].includes(page);
