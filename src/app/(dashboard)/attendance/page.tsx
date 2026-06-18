@@ -4,7 +4,7 @@ import * as React from "react";
 import { LogIn, LogOut, Clock, CheckCircle2, Users } from "lucide-react";
 import { useApp } from "@/lib/store";
 import { EMPLOYEES } from "@/lib/mock-data";
-import { fetchAttendance } from "@/lib/data/attendance";
+import { fetchAttendance, checkIn as dbCheckIn, checkOut as dbCheckOut } from "@/lib/data/attendance";
 import { getRole } from "@/lib/roles";
 import { ATTENDANCE_MAP } from "@/components/status-badge";
 import { PageHeader } from "@/components/page-header";
@@ -33,7 +33,7 @@ export default function AttendancePage() {
 }
 
 function AttendanceInner() {
-  const { range } = useApp();
+  const { range, currentUser } = useApp();
   const [records, setRecords] = React.useState<AttendanceRecord[]>([]);
   const [statusFilter, setStatusFilter] = React.useState("all");
   const [checkedIn, setCheckedIn] = React.useState(false);
@@ -50,7 +50,7 @@ function AttendanceInner() {
     };
   }, []);
 
-  const me = EMPLOYEES[0];
+  const me = currentUser ?? EMPLOYEES[0];
 
   const filtered = records.filter((r) => statusFilter === "all" || r.status === statusFilter);
 
@@ -59,7 +59,7 @@ function AttendanceInner() {
   const remote = records.filter((r) => r.status === "remote").length;
   const present = onTime + late + remote;
 
-  function checkIn() {
+  async function checkIn() {
     const t = nowTime();
     setCheckedIn(true);
     setMyCheckIn(t);
@@ -73,13 +73,15 @@ function AttendanceInner() {
         date: new Date().toISOString(),
         checkIn: t,
         status: "on_time",
-        comment: "Отметка прихода (демо)",
+        comment: "Отметка прихода",
       },
       ...prev,
     ]);
+    const ok = await dbCheckIn(me.id); // персист в Supabase
+    if (ok) fetchAttendance().then(setRecords);
   }
 
-  function checkOut() {
+  async function checkOut() {
     const t = nowTime();
     setCheckedIn(false);
     setMyCheckOut(t);
@@ -87,9 +89,11 @@ function AttendanceInner() {
       const idx = prev.findIndex((r) => r.employeeId === me.id && r.checkIn === myCheckIn && !r.checkOut);
       if (idx === -1) return prev;
       const next = [...prev];
-      next[idx] = { ...next[idx], checkOut: t, comment: "Смена завершена (демо)" };
+      next[idx] = { ...next[idx], checkOut: t, comment: "Смена завершена" };
       return next;
     });
+    const ok = await dbCheckOut(me.id);
+    if (ok) fetchAttendance().then(setRecords);
   }
 
   const columns: Column<AttendanceRecord>[] = [

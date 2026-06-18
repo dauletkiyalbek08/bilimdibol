@@ -86,9 +86,31 @@ export async function POST(req: Request) {
       }
     }
 
-    // Round-robin assignment by current lead count
-    const { count } = await admin.from("leads").select("id", { count: "exact", head: true });
-    const hunter = HUNTERS[(count ?? 0) % HUNTERS.length];
+    // ---- Assignment: only hunters present today, balanced by current load
+    const todayStart = new Date();
+    todayStart.setHours(0, 0, 0, 0);
+    const { data: att } = await admin
+      .from("attendance")
+      .select("employee_id, status, date")
+      .gte("date", todayStart.toISOString());
+    const presentIds = new Set(
+      (att ?? [])
+        .filter((a) => ["on_time", "late", "remote"].includes(a.status as string))
+        .map((a) => a.employee_id as string),
+    );
+    let candidates = HUNTERS.filter((h) => presentIds.has(h.id));
+    if (candidates.length === 0) candidates = HUNTERS; // никого нет на смене → всем по кругу
+
+    // least-loaded among candidates
+    const { data: leadRows } = await admin.from("leads").select("hunter_id");
+    const load = new Map<string, number>();
+    for (const l of leadRows ?? []) {
+      const hid = (l as { hunter_id: string | null }).hunter_id;
+      if (hid) load.set(hid, (load.get(hid) ?? 0) + 1);
+    }
+    candidates = [...candidates].sort((a, b) => (load.get(a.id) ?? 0) - (load.get(b.id) ?? 0));
+    const hunter = candidates[0];
+    const noneOnShift = presentIds.size === 0 || !HUNTERS.some((h) => presentIds.has(h.id));
 
     const { data, error } = await admin
       .from("leads")
@@ -140,7 +162,7 @@ export async function POST(req: Request) {
         `📞 ${phone || "—"}\n` +
         `📍 Источник: ${source}\n` +
         (comment ? `💬 ${comment}\n` : "") +
-        `🎯 Hunter: ${hunter.name}\n\n` +
+        `🎯 Hunter: ${hunter.name}${noneOnShift ? " ⚠️ (никто не на смене — назначен по кругу)" : ""}\n\n` +
         `➡️ ${appUrl}/leads`,
     );
 
