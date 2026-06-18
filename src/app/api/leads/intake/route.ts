@@ -86,6 +86,13 @@ export async function POST(req: Request) {
       }
     }
 
+    // ---- Пул хантеров из БД (все с ролью hunter), фолбэк на mock
+    const { data: hRows } = await admin.from("users").select("id, name").eq("role", "hunter");
+    const hunters: { id: string; name: string }[] =
+      hRows && hRows.length
+        ? hRows.map((h) => ({ id: h.id as string, name: h.name as string }))
+        : HUNTERS.map((h) => ({ id: h.id, name: h.name }));
+
     // ---- Assignment: only hunters present today, balanced by current load
     const todayStart = new Date();
     todayStart.setHours(0, 0, 0, 0);
@@ -103,8 +110,8 @@ export async function POST(req: Request) {
         )
         .map((a) => a.employee_id as string),
     );
-    let candidates = HUNTERS.filter((h) => presentIds.has(h.id));
-    if (candidates.length === 0) candidates = HUNTERS; // никого нет на смене → всем по кругу
+    let candidates = hunters.filter((h) => presentIds.has(h.id));
+    if (candidates.length === 0) candidates = hunters; // никого нет на смене → всем по кругу
 
     // least-loaded among candidates — по СЕГОДНЯШНИМ лидам
     const { data: leadRows } = await admin
@@ -118,7 +125,7 @@ export async function POST(req: Request) {
     }
     candidates = [...candidates].sort((a, b) => (load.get(a.id) ?? 0) - (load.get(b.id) ?? 0));
     const hunter = candidates[0];
-    const noneOnShift = presentIds.size === 0 || !HUNTERS.some((h) => presentIds.has(h.id));
+    const noneOnShift = presentIds.size === 0 || !hunters.some((h) => presentIds.has(h.id));
 
     const { data, error } = await admin
       .from("leads")
