@@ -6,6 +6,7 @@ import { useApp } from "@/lib/store";
 import { EMPLOYEES } from "@/lib/mock-data";
 import { fetchAttendance, checkIn as dbCheckIn, checkOut as dbCheckOut } from "@/lib/data/attendance";
 import { OFFICE, distanceM } from "@/lib/geo";
+import { fetchOfficeSettings, type OfficeSettings } from "@/lib/data/settings";
 import { getRole } from "@/lib/roles";
 import { ATTENDANCE_MAP } from "@/components/status-badge";
 import { PageHeader } from "@/components/page-header";
@@ -42,11 +43,15 @@ function AttendanceInner() {
   const [myCheckOut, setMyCheckOut] = React.useState<string | null>(null);
   const [locating, setLocating] = React.useState(false);
   const [geoMsg, setGeoMsg] = React.useState<{ ok: boolean; text: string } | null>(null);
+  const [office, setOffice] = React.useState<OfficeSettings>({ lat: OFFICE.lat, lng: OFFICE.lng, radiusM: OFFICE.radiusM });
 
   React.useEffect(() => {
     let active = true;
     fetchAttendance().then((rows) => {
       if (active) setRecords(rows);
+    });
+    fetchOfficeSettings().then((o) => {
+      if (active) setOffice(o);
     });
     return () => {
       active = false;
@@ -88,11 +93,11 @@ function AttendanceInner() {
     }
     const lat = pos.coords.latitude;
     const lng = pos.coords.longitude;
-    const dist = distanceM(lat, lng, OFFICE.lat, OFFICE.lng);
+    const dist = distanceM(lat, lng, office.lat, office.lng);
     setLocating(false);
 
     // 2. Проверяем геозону офиса
-    if (dist > OFFICE.radiusM) {
+    if (dist > office.radiusM) {
       setGeoMsg({ ok: false, text: `Вы не в офисе (≈${dist} м от точки). Отметка прихода доступна только в офисе.` });
       return;
     }

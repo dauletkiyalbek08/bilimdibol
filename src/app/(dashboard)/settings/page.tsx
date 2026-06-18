@@ -1,10 +1,11 @@
 "use client";
 
 import * as React from "react";
-import { Building2, Bell, Plug, Users, Globe, Check } from "lucide-react";
+import { Building2, Bell, Plug, Users, Globe, Check, MapPin, Crosshair } from "lucide-react";
 import { useApp } from "@/lib/store";
 import { getRole, PROJECT } from "@/lib/roles";
 import { EMPLOYEES } from "@/lib/mock-data";
+import { fetchOfficeSettings, saveOfficeSettings } from "@/lib/data/settings";
 import { PageHeader } from "@/components/page-header";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -132,6 +133,9 @@ export default function SettingsPage() {
         </Card>
       </div>
 
+      {/* Office geofence — только админ */}
+      {role === "admin" && <OfficeGeoCard />}
+
       {/* Team */}
       <Card>
         <CardHeader>
@@ -153,6 +157,99 @@ export default function SettingsPage() {
         </CardContent>
       </Card>
     </div>
+  );
+}
+
+function OfficeGeoCard() {
+  const [lat, setLat] = React.useState("");
+  const [lng, setLng] = React.useState("");
+  const [radius, setRadius] = React.useState("250");
+  const [locating, setLocating] = React.useState(false);
+  const [msg, setMsg] = React.useState<{ ok: boolean; text: string } | null>(null);
+  const [savingOffice, setSavingOffice] = React.useState(false);
+
+  React.useEffect(() => {
+    fetchOfficeSettings().then((o) => {
+      setLat(String(o.lat));
+      setLng(String(o.lng));
+      setRadius(String(o.radiusM));
+    });
+  }, []);
+
+  function useMyLocation() {
+    setMsg(null);
+    setLocating(true);
+    if (!navigator.geolocation) {
+      setLocating(false);
+      setMsg({ ok: false, text: "Геолокация недоступна в этом браузере" });
+      return;
+    }
+    navigator.geolocation.getCurrentPosition(
+      (pos) => {
+        setLat(pos.coords.latitude.toFixed(6));
+        setLng(pos.coords.longitude.toFixed(6));
+        setLocating(false);
+        setMsg({ ok: true, text: "Координаты подставлены из вашего местоположения" });
+      },
+      () => {
+        setLocating(false);
+        setMsg({ ok: false, text: "Не удалось определить местоположение — разрешите доступ" });
+      },
+      { enableHighAccuracy: true, timeout: 10000 },
+    );
+  }
+
+  async function save() {
+    const la = Number(lat);
+    const ln = Number(lng);
+    const r = Number(radius);
+    if (!Number.isFinite(la) || !Number.isFinite(ln) || !r) {
+      setMsg({ ok: false, text: "Проверьте координаты и радиус" });
+      return;
+    }
+    setSavingOffice(true);
+    const ok = await saveOfficeSettings({ lat: la, lng: ln, radiusM: r });
+    setSavingOffice(false);
+    setMsg(ok ? { ok: true, text: "Сохранено. Геозона применится при следующей отметке." } : { ok: false, text: "Не удалось сохранить (нужны права админа и применённая миграция)" });
+  }
+
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle className="flex items-center gap-2"><MapPin className="size-4.5 text-brand" /> Геозона офиса</CardTitle>
+        <CardDescription>Точка офиса и радиус для отметки «Пришёл». При переезде — просто измените здесь.</CardDescription>
+      </CardHeader>
+      <CardContent className="space-y-4">
+        <div className="grid gap-3 sm:grid-cols-3">
+          <div>
+            <label className="mb-1 block text-xs font-medium text-muted">Широта (lat)</label>
+            <Input value={lat} onChange={(e) => setLat(e.target.value)} placeholder="43.323290" />
+          </div>
+          <div>
+            <label className="mb-1 block text-xs font-medium text-muted">Долгота (lng)</label>
+            <Input value={lng} onChange={(e) => setLng(e.target.value)} placeholder="77.016375" />
+          </div>
+          <div>
+            <label className="mb-1 block text-xs font-medium text-muted">Радиус, м</label>
+            <Input type="number" value={radius} onChange={(e) => setRadius(e.target.value)} placeholder="250" />
+          </div>
+        </div>
+        <div className="flex flex-wrap gap-2">
+          <Button variant="outline" onClick={useMyLocation} disabled={locating}>
+            <Crosshair /> {locating ? "Определяем…" : "Моё текущее местоположение"}
+          </Button>
+          <Button onClick={save} disabled={savingOffice}>
+            {savingOffice ? "Сохранение…" : "Сохранить геозону"}
+          </Button>
+        </div>
+        {msg && (
+          <p className={`rounded-lg px-3 py-2 text-sm ${msg.ok ? "bg-brand-50 text-brand-700" : "bg-red-50 text-red-600"}`}>{msg.text}</p>
+        )}
+        <p className="text-xs text-muted">
+          Подсказка: чтобы задать новый офис — встаньте в нём и нажмите «Моё текущее местоположение», затем «Сохранить».
+        </p>
+      </CardContent>
+    </Card>
   );
 }
 
