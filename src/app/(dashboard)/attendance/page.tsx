@@ -5,6 +5,8 @@ import { LogIn, LogOut, Clock, CheckCircle2, Users, MapPin } from "lucide-react"
 import { useApp } from "@/lib/store";
 import { EMPLOYEES } from "@/lib/mock-data";
 import { fetchAttendance, checkIn as dbCheckIn, checkOut as dbCheckOut } from "@/lib/data/attendance";
+import { fetchUsers } from "@/lib/data/users";
+import { fetchSchedules, type Schedule } from "@/lib/data/schedules";
 import { OFFICE, distanceM } from "@/lib/geo";
 import { fetchOfficeSettings, type OfficeSettings } from "@/lib/data/settings";
 import { getRole } from "@/lib/roles";
@@ -17,10 +19,11 @@ import { StatusBadge } from "@/components/status-badge";
 import { ExportButton } from "@/components/export-button";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
 import { Select } from "@/components/ui/select";
 import { UserAvatar } from "@/components/user-avatar";
 import { fmtDate } from "@/lib/utils";
-import type { AttendanceRecord } from "@/lib/types";
+import type { AttendanceRecord, User } from "@/lib/types";
 
 function nowTime() {
   return new Date().toLocaleTimeString("ru-RU", { hour: "2-digit", minute: "2-digit", hour12: false });
@@ -44,6 +47,8 @@ function AttendanceInner() {
   const [locating, setLocating] = React.useState(false);
   const [geoMsg, setGeoMsg] = React.useState<{ ok: boolean; text: string } | null>(null);
   const [office, setOffice] = React.useState<OfficeSettings>({ lat: OFFICE.lat, lng: OFFICE.lng, radiusM: OFFICE.radiusM });
+  const [team, setTeam] = React.useState<User[]>([]);
+  const [schedules, setSchedules] = React.useState<Record<string, Schedule>>({});
 
   React.useEffect(() => {
     let active = true;
@@ -52,6 +57,12 @@ function AttendanceInner() {
     });
     fetchOfficeSettings().then((o) => {
       if (active) setOffice(o);
+    });
+    Promise.all([fetchUsers(), fetchSchedules()]).then(([us, sch]) => {
+      if (active) {
+        setTeam(us);
+        setSchedules(sch);
+      }
     });
     return () => {
       active = false;
@@ -71,6 +82,20 @@ function AttendanceInner() {
   const late = visible.filter((r) => r.status === "late").length;
   const remote = visible.filter((r) => r.status === "remote").length;
   const present = onTime + late + remote;
+
+  // Сегодня по графику
+  const todayIso = (() => {
+    const dd = new Date().getDay();
+    return dd === 0 ? 7 : dd;
+  })();
+  const todayStart0 = new Date();
+  todayStart0.setHours(0, 0, 0, 0);
+  const todayRecord = (uid: string) =>
+    records.find((r) => r.employeeId === uid && new Date(r.date) >= todayStart0 && r.checkIn);
+  const scheduledTodayUsers = team.filter(
+    (u) => u.active !== false && (schedules[u.id]?.weekdays ?? []).includes(todayIso),
+  );
+  const checkedInCount = scheduledTodayUsers.filter((u) => todayRecord(u.id)).length;
 
   async function checkIn() {
     setGeoMsg(null);
@@ -217,6 +242,47 @@ function AttendanceInner() {
           )}
         </CardContent>
       </Card>
+
+      {canSeeAll && (
+        <Card>
+          <CardHeader>
+            <CardTitle>Сегодня по графику</CardTitle>
+            <CardDescription>
+              {scheduledTodayUsers.length === 0
+                ? "На сегодня нет сотрудников по графику"
+                : `Отметились ${checkedInCount} из ${scheduledTodayUsers.length}`}
+            </CardDescription>
+          </CardHeader>
+          {scheduledTodayUsers.length > 0 && (
+            <CardContent>
+              <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
+                {scheduledTodayUsers.map((u) => {
+                  const rec = todayRecord(u.id);
+                  const sc = schedules[u.id];
+                  return (
+                    <div key={u.id} className="flex items-center justify-between gap-2 rounded-xl border border-border p-3">
+                      <div className="flex min-w-0 items-center gap-2.5">
+                        <UserAvatar name={u.name} color={u.avatarColor} size="sm" />
+                        <div className="min-w-0">
+                          <p className="truncate text-sm font-medium text-ink">{u.name}</p>
+                          <p className="truncate text-xs text-muted">
+                            {getRole(u.role).short}{sc ? ` · ${sc.start}–${sc.end}` : ""}
+                          </p>
+                        </div>
+                      </div>
+                      {rec ? (
+                        <StatusBadge kind="attendance" value={rec.status} />
+                      ) : (
+                        <Badge variant="red">Не отметился</Badge>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+            </CardContent>
+          )}
+        </Card>
+      )}
 
       <Card>
         <CardHeader className="flex-row items-center justify-between">

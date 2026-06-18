@@ -59,13 +59,40 @@ export async function checkIn(
   const sb = getSupabase();
   if (!sb) return false;
   const d = new Date();
-  const late = d.getHours() > 9 || (d.getHours() === 9 && d.getMinutes() > 10); // позже 09:10
+
+  // Опоздание считаем от начала смены по графику (если задан), иначе 09:10
+  let startMin = 9 * 60 + 10; // дефолт «позже 09:10»
+  let scheduledToday = true;
+  try {
+    const { data: sc } = await sb
+      .from("schedules")
+      .select("weekdays, start_time")
+      .eq("employee_id", userId)
+      .single();
+    if (sc) {
+      const iso = d.getDay() === 0 ? 7 : d.getDay(); // 1=Пн … 7=Вс
+      scheduledToday = (sc.weekdays ?? [1, 2, 3, 4, 5]).includes(iso);
+      const [sh, sm] = String(sc.start_time ?? "09:00").split(":").map(Number);
+      startMin = sh * 60 + sm + 5; // 5 минут запаса
+    }
+  } catch {
+    /* нет графика — дефолт */
+  }
+
+  const nowMin = d.getHours() * 60 + d.getMinutes();
+  const late = scheduledToday && nowMin > startMin;
+  const comment = !scheduledToday
+    ? "Отметка прихода (вне графика) · 📍 в офисе"
+    : late
+      ? "Отметка прихода (опоздание) · 📍 в офисе"
+      : "Отметка прихода · 📍 в офисе";
+
   const base = {
     employee_id: userId,
     date: d.toISOString(),
     check_in: nowHHMM(),
     status: late ? "late" : "on_time",
-    comment: late ? "Отметка прихода (опоздание) · 📍 в офисе" : "Отметка прихода · 📍 в офисе",
+    comment,
   };
   try {
     const { error } = await sb.from("attendance").insert({
