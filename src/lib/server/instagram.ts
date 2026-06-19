@@ -5,7 +5,9 @@ const GRAPH = "https://graph.facebook.com/v21.0";
 type SendResult = { ok: boolean; status?: number; raw?: string; error?: string };
 
 function token(): string | null {
-  return process.env.META_PAGE_ACCESS_TOKEN || null;
+  // Отдельный токен страницы для Instagram (права на сообщения/комментарии).
+  // Фолбэк на общий токен, если IG_PAGE_TOKEN не задан.
+  return process.env.IG_PAGE_TOKEN || process.env.META_PAGE_ACCESS_TOKEN || null;
 }
 
 /** Личное сообщение пользователю в Instagram Direct по его IGSID. */
