@@ -222,10 +222,41 @@ const PRESET_LABELS: Record<string, string> = {
   last_90d: "90 дней",
 };
 
+interface AiAnalysis {
+  summary: string;
+  scale: { campaign: string; reason: string }[];
+  pause: { campaign: string; reason: string }[];
+  fix: { campaign: string; reason: string }[];
+  creatives: string[];
+}
+
 function MetaLive() {
   const [data, setData] = React.useState<MetaAdsData | null>(null);
   const [preset, setPreset] = React.useState("last_30d");
   const [loading, setLoading] = React.useState(true);
+  const [analysis, setAnalysis] = React.useState<AiAnalysis | null>(null);
+  const [analyzing, setAnalyzing] = React.useState(false);
+  const [analyzeErr, setAnalyzeErr] = React.useState<string | null>(null);
+
+  async function runAnalysis() {
+    setAnalyzing(true);
+    setAnalyzeErr(null);
+    setAnalysis(null);
+    try {
+      const res = await fetch("/api/ads/analyze", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ preset }),
+      });
+      const d = await res.json();
+      if (d.mode === "live" && d.analysis) setAnalysis(d.analysis as AiAnalysis);
+      else setAnalyzeErr(d.note || d.error || "Не удалось получить анализ");
+    } catch (e) {
+      setAnalyzeErr(String(e));
+    } finally {
+      setAnalyzing(false);
+    }
+  }
 
   React.useEffect(() => {
     let active = true;
@@ -314,9 +345,77 @@ function MetaLive() {
             <MetricCard title="Охват" value={formatNumber(data.account.reach)} icon={Users} accent="green" />
           </div>
           <DataTable columns={cols} data={data.campaigns} rowKey={(c) => c.id} />
+
+          <div className="flex items-center gap-3 border-t border-border pt-4">
+            <button
+              onClick={runAnalysis}
+              disabled={analyzing}
+              className="inline-flex items-center gap-2 rounded-xl bg-brand px-4 py-2 text-sm font-medium text-white transition-opacity hover:opacity-90 disabled:opacity-60"
+            >
+              {analyzing ? (
+                <>
+                  <span className="size-4 animate-spin rounded-full border-2 border-white border-t-transparent" />
+                  ИИ анализирует кампании…
+                </>
+              ) : (
+                <>
+                  <Sparkles className="size-4" /> 🤖 ИИ-анализ кампаний (таргетолог)
+                </>
+              )}
+            </button>
+            {analyzeErr && <span className="text-sm text-red-600">{analyzeErr}</span>}
+          </div>
+
+          {analysis && (
+            <div className="space-y-3 rounded-xl border border-border bg-canvas/40 p-4">
+              <div>
+                <p className="mb-1 text-xs font-medium uppercase tracking-wide text-muted">Вывод ИИ-таргетолога</p>
+                <p className="text-sm text-ink">{analysis.summary}</p>
+              </div>
+              <div className="grid gap-3 sm:grid-cols-2">
+                <AiBlock icon={Rocket} tone="bg-brand-50/60 text-brand-700" title="Масштабировать"
+                  items={analysis.scale.map((s) => `${s.campaign} — ${s.reason}`)} empty="Нет явных кандидатов" />
+                <AiBlock icon={OctagonAlert} tone="bg-red-50/60 text-red-700" title="Остановить / пересобрать"
+                  items={analysis.pause.map((s) => `${s.campaign} — ${s.reason}`)} empty="Слабых кампаний не найдено" />
+                <AiBlock icon={DollarSign} tone="bg-amber-50/60 text-amber-700" title="Починить"
+                  items={analysis.fix.map((s) => `${s.campaign} — ${s.reason}`)} empty="Критичных проблем нет" />
+                <AiBlock icon={Sparkles} tone="bg-sky-50/60 text-sky-700" title="Идеи текстов объявлений"
+                  items={analysis.creatives} empty="—" />
+              </div>
+            </div>
+          )}
         </div>
       )}
     </ChartCard>
+  );
+}
+
+function AiBlock({
+  icon: Icon,
+  tone,
+  title,
+  items,
+  empty,
+}: {
+  icon: typeof Rocket;
+  tone: string;
+  title: string;
+  items: string[];
+  empty: string;
+}) {
+  return (
+    <div className="rounded-xl border border-border bg-white p-3">
+      <p className={`mb-2 inline-flex items-center gap-1.5 rounded-lg px-2 py-1 text-sm font-medium ${tone}`}>
+        <Icon className="size-4" /> {title}
+      </p>
+      <ul className="space-y-1 text-sm text-ink">
+        {(items.length ? items : [empty]).map((it, i) => (
+          <li key={i} className="flex items-start gap-1.5">
+            <Sparkles className="mt-0.5 size-3.5 shrink-0 text-accent-yellow" /> {it}
+          </li>
+        ))}
+      </ul>
+    </div>
   );
 }
 
