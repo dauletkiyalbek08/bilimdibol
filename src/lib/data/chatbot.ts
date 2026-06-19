@@ -66,7 +66,7 @@ export async function fetchFlows(): Promise<ChatBotFlow[]> {
   if (!sb) return BOT_FLOWS;
   try {
     const { data, error } = await sb.from("bot_flows").select("*, bot_nodes(*)");
-    if (error || !data || data.length === 0) return BOT_FLOWS;
+    if (error || !data) return BOT_FLOWS;
     return (data as FlowRow[]).map(mapFlow);
   } catch {
     return BOT_FLOWS;

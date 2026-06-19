@@ -48,7 +48,7 @@ export async function fetchCreatives(): Promise<CreativeAnalytics[]> {
   if (!sb) return CREATIVES;
   try {
     const { data, error } = await sb.from("creative_analytics").select("*");
-    if (error || !data || data.length === 0) return CREATIVES;
+    if (error || !data) return CREATIVES;
     return (data as CreativeRow[]).map(mapRow);
   } catch {
     return CREATIVES;

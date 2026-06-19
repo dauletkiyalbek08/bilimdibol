@@ -38,7 +38,7 @@ export async function fetchFunnels(): Promise<Funnel[]> {
   if (!sb) return FUNNELS;
   try {
     const { data, error } = await sb.from("funnels").select("*");
-    if (error || !data || data.length === 0) return FUNNELS;
+    if (error || !data) return FUNNELS;
     return (data as FunnelRow[]).map(mapRow);
   } catch {
     return FUNNELS;

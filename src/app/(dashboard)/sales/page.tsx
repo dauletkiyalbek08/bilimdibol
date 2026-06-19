@@ -79,8 +79,13 @@ function SalesInner() {
 
   function setReceipt(id: string, status: ReceiptStatus) {
     setSales((prev) => prev.map((s) => (s.id === id ? { ...s, receiptStatus: status } : s)));
-    void updateReceiptStatus(id, status); // persists to Supabase when configured
     setActiveReceiptId(null);
+    updateReceiptStatus(id, status).then((ok) => {
+      if (!ok) {
+        alert("⚠️ Не удалось сохранить статус чека. Проверьте доступ/соединение — данные обновлены из базы.");
+        fetchSales().then(setSales);
+      }
+    });
   }
 
   const columns: Column<Sale>[] = [

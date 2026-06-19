@@ -80,49 +80,53 @@ export async function fetchLeadSourceCounts(): Promise<{ source: string; count: 
   }
 }
 
-/** Update a lead's status — persists to Supabase when configured. */
-export async function updateLeadStatus(id: string, status: LeadStatus): Promise<void> {
+/** Update a lead's status. Returns true on success (or in mock mode). */
+export async function updateLeadStatus(id: string, status: LeadStatus): Promise<boolean> {
   const sb = getSupabase();
-  if (!sb) return; // mock mode: caller keeps local state
+  if (!sb) return true; // mock mode: caller keeps local state
   try {
-    await sb.from("leads").update({ status }).eq("id", id);
+    const { error } = await sb.from("leads").update({ status }).eq("id", id);
+    return !error;
   } catch {
-    /* ignore in demo */
+    return false;
   }
 }
 
-/** Переназначить лид на другого хантера — persists to Supabase when configured. */
-export async function updateLeadHunter(id: string, hunterId: string): Promise<void> {
+/** Переназначить лид на другого хантера. Returns true on success. */
+export async function updateLeadHunter(id: string, hunterId: string): Promise<boolean> {
   const sb = getSupabase();
-  if (!sb) return;
+  if (!sb) return true;
   try {
-    await sb.from("leads").update({ hunter_id: hunterId }).eq("id", id);
+    const { error } = await sb.from("leads").update({ hunter_id: hunterId }).eq("id", id);
     await sb.from("deals").update({ hunter_id: hunterId }).eq("lead_id", id);
+    return !error;
   } catch {
-    /* ignore in demo */
+    return false;
   }
 }
 
-/** Удалить лид (и связанную сделку) — persists to Supabase when configured. */
-export async function deleteLead(id: string): Promise<void> {
+/** Удалить лид (и связанную сделку). Returns true on success. */
+export async function deleteLead(id: string): Promise<boolean> {
   const sb = getSupabase();
-  if (!sb) return;
+  if (!sb) return true;
   try {
     await sb.from("deals").delete().eq("lead_id", id);
-    await sb.from("leads").delete().eq("id", id);
+    const { error } = await sb.from("leads").delete().eq("id", id);
+    return !error;
   } catch {
-    /* ignore in demo */
+    return false;
   }
 }
 
-/** Update a lead's comment — persists to Supabase when configured. */
-export async function updateLeadComment(id: string, comment: string): Promise<void> {
+/** Update a lead's comment. Returns true on success. */
+export async function updateLeadComment(id: string, comment: string): Promise<boolean> {
   const sb = getSupabase();
-  if (!sb) return;
+  if (!sb) return true;
   try {
-    await sb.from("leads").update({ comment }).eq("id", id);
+    const { error } = await sb.from("leads").update({ comment }).eq("id", id);
+    return !error;
   } catch {
-    /* ignore in demo */
+    return false;
   }
 }
 

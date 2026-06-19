@@ -47,7 +47,7 @@ export async function fetchCalls(): Promise<CallRecord[]> {
       .from("calls")
       .select("*, users(name, role)")
       .order("created_at", { ascending: false });
-    if (error || !data || data.length === 0) return CALLS;
+    if (error || !data) return CALLS;
     return (data as CallRow[]).map(mapRow);
   } catch {
     return CALLS;

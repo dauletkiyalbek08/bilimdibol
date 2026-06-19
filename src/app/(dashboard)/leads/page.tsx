@@ -122,8 +122,13 @@ function LeadsInner() {
           : l,
       ),
     );
-    void updateLeadStatus(id, next); // persists to Supabase when configured
     setStatusModal(false);
+    updateLeadStatus(id, next).then((ok) => {
+      if (!ok) {
+        alert("⚠️ Не удалось сохранить статус. Проверьте доступ/соединение — данные обновлены из базы.");
+        fetchLeads().then(setLeads);
+      }
+    });
   }
 
   function reassignHunter(id: string, hunterId: string) {
@@ -141,15 +146,25 @@ function LeadsInner() {
           : l,
       ),
     );
-    void updateLeadHunter(id, hunterId);
     setHunterModal(false);
+    updateLeadHunter(id, hunterId).then((ok) => {
+      if (!ok) {
+        alert("⚠️ Не удалось переназначить хантера. Проверьте доступ/соединение — данные обновлены из базы.");
+        fetchLeads().then(setLeads);
+      }
+    });
   }
 
   function removeLead(id: string) {
     setLeads((prev) => prev.filter((l) => l.id !== id));
     setSelectedId(null);
-    void deleteLead(id);
     setDeleteModal(false);
+    deleteLead(id).then((ok) => {
+      if (!ok) {
+        alert("⚠️ Не удалось удалить лид. Проверьте доступ/соединение — данные обновлены из базы.");
+        fetchLeads().then(setLeads);
+      }
+    });
   }
 
   function addComment(id: string, text: string) {
@@ -168,9 +183,14 @@ function LeadsInner() {
           : l,
       ),
     );
-    void updateLeadComment(id, text); // persists to Supabase when configured
     setCommentDraft("");
     setCommentModal(false);
+    updateLeadComment(id, text).then((ok) => {
+      if (!ok) {
+        alert("⚠️ Не удалось сохранить комментарий. Проверьте доступ/соединение — данные обновлены из базы.");
+        fetchLeads().then(setLeads);
+      }
+    });
   }
 
   async function handleCreate() {

@@ -40,7 +40,7 @@ export async function fetchAttendance(): Promise<AttendanceRecord[]> {
       .from("attendance")
       .select("*, users(name, role)")
       .order("date", { ascending: false });
-    if (error || !data || data.length === 0) return ATTENDANCE;
+    if (error || !data) return ATTENDANCE;
     return (data as AttendanceRow[]).map(mapRow);
   } catch {
     return ATTENDANCE;

@@ -60,7 +60,7 @@ export async function fetchAdCampaigns(): Promise<AdCampaign[]> {
   if (!sb) return AD_CAMPAIGNS;
   try {
     const { data, error } = await sb.from("ad_campaigns").select("*");
-    if (error || !data || data.length === 0) return AD_CAMPAIGNS;
+    if (error || !data) return AD_CAMPAIGNS;
     return (data as CampaignRow[]).map(mapCampaign);
   } catch {
     return AD_CAMPAIGNS;
@@ -72,7 +72,7 @@ export async function fetchAdSpend(): Promise<AdSpend[]> {
   if (!sb) return AD_SPEND;
   try {
     const { data, error } = await sb.from("ad_spend").select("*").order("date", { ascending: true });
-    if (error || !data || data.length === 0) return AD_SPEND;
+    if (error || !data) return AD_SPEND;
     return (data as SpendRow[]).map(mapSpend);
   } catch {
     return AD_SPEND;

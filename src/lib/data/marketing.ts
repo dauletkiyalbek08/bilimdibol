@@ -34,7 +34,7 @@ export async function fetchAttribution(): Promise<MarketingAttribution[]> {
   if (!sb) return ATTRIBUTION;
   try {
     const { data, error } = await sb.from("marketing_attribution").select("*");
-    if (error || !data || data.length === 0) return ATTRIBUTION;
+    if (error || !data) return ATTRIBUTION;
     return (data as AttrRow[]).map(mapRow);
   } catch {
     return ATTRIBUTION;

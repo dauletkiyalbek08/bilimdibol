@@ -65,12 +65,13 @@ export async function fetchDeals(): Promise<Deal[]> {
   }
 }
 
-export async function updateDealStage(id: string, stage: DealStage): Promise<void> {
+export async function updateDealStage(id: string, stage: DealStage): Promise<boolean> {
   const sb = getSupabase();
-  if (!sb) return;
+  if (!sb) return true;
   try {
-    await sb.from("deals").update({ stage }).eq("id", id);
+    const { error } = await sb.from("deals").update({ stage }).eq("id", id);
+    return !error;
   } catch {
-    /* ignore in demo */
+    return false;
   }
 }

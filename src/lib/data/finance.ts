@@ -30,7 +30,7 @@ export async function fetchFinanceOps(): Promise<FinanceOperation[]> {
   if (!sb) return FINANCE_OPS;
   try {
     const { data, error } = await sb.from("finance_operations").select("*").order("date", { ascending: false });
-    if (error || !data || data.length === 0) return FINANCE_OPS;
+    if (error || !data) return FINANCE_OPS;
     return (data as OpRow[]).map(mapRow);
   } catch {
     return FINANCE_OPS;

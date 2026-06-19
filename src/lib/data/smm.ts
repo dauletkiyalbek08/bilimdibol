@@ -32,7 +32,7 @@ export async function fetchContentPlan(): Promise<SmmContentPlanItem[]> {
   if (!sb) return SMM_PLAN;
   try {
     const { data, error } = await sb.from("smm_content_plan").select("*").order("publish_date", { ascending: false });
-    if (error || !data || data.length === 0) return SMM_PLAN;
+    if (error || !data) return SMM_PLAN;
     return (data as PlanRow[]).map(mapRow);
   } catch {
     return SMM_PLAN;

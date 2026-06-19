@@ -28,7 +28,7 @@ export async function fetchContracts(): Promise<Contract[]> {
   if (!sb) return CONTRACTS;
   try {
     const { data, error } = await sb.from("contracts").select("*").order("created_at", { ascending: false });
-    if (error || !data || data.length === 0) return CONTRACTS;
+    if (error || !data) return CONTRACTS;
     return (data as ContractRow[]).map(mapRow);
   } catch {
     return CONTRACTS;

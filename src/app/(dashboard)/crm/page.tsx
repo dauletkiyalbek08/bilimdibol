@@ -95,8 +95,13 @@ function CrmInner() {
           : d,
       ),
     );
-    void updateDealStage(id, stage); // persists to Supabase when configured
     setStageModal(false);
+    updateDealStage(id, stage).then((ok) => {
+      if (!ok) {
+        alert("⚠️ Не удалось сохранить стадию сделки. Проверьте доступ/соединение — данные обновлены из базы.");
+        fetchDeals().then(setDeals);
+      }
+    });
   }
 
   function addTask(id: string, title: string) {

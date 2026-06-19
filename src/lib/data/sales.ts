@@ -49,12 +49,13 @@ export async function fetchSales(): Promise<Sale[]> {
   }
 }
 
-export async function updateReceiptStatus(id: string, status: ReceiptStatus): Promise<void> {
+export async function updateReceiptStatus(id: string, status: ReceiptStatus): Promise<boolean> {
   const sb = getSupabase();
-  if (!sb) return;
+  if (!sb) return true;
   try {
-    await sb.from("sales").update({ receipt_status: status }).eq("id", id);
+    const { error } = await sb.from("sales").update({ receipt_status: status }).eq("id", id);
+    return !error;
   } catch {
-    /* ignore in demo */
+    return false;
   }
 }

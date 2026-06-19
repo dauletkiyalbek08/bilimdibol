@@ -40,7 +40,7 @@ export async function fetchPayroll(): Promise<PayrollRecord[]> {
   if (!sb) return PAYROLL;
   try {
     const { data, error } = await sb.from("payroll").select("*, users(name, role)");
-    if (error || !data || data.length === 0) return PAYROLL;
+    if (error || !data) return PAYROLL;
     return (data as PayrollRow[]).map(mapRow);
   } catch {
     return PAYROLL;

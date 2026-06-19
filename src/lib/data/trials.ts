@@ -36,7 +36,7 @@ export async function fetchTrials(): Promise<TrialLesson[]> {
   if (!sb) return TRIALS;
   try {
     const { data, error } = await sb.from("trials").select("*").order("datetime", { ascending: false });
-    if (error || !data || data.length === 0) return TRIALS;
+    if (error || !data) return TRIALS;
     return (data as TrialRow[]).map(mapRow);
   } catch {
     return TRIALS;
