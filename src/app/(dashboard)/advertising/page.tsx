@@ -104,24 +104,21 @@ function AdvertisingInner() {
     },
   ];
 
-  if (!stats) {
-    return (
-      <div className="space-y-6">
-        <PageHeader title="Реклама" description={`Дашборд таргетолога · ${range.label}`} />
-        <div className="flex items-center justify-center gap-2 py-20 text-sm text-muted">
-          <span className="size-4 animate-spin rounded-full border-2 border-brand border-t-transparent" />
-          Загрузка рекламной аналитики…
-        </div>
-      </div>
-    );
-  }
-
   return (
     <div className="space-y-6">
       <PageHeader title="Реклама" description={`Дашборд таргетолога · ${range.label}`}>
         <ExportButton />
       </PageHeader>
 
+      <MetaLive />
+
+      {!stats ? (
+        <div className="flex items-center justify-center gap-2 py-20 text-sm text-muted">
+          <span className="size-4 animate-spin rounded-full border-2 border-brand border-t-transparent" />
+          Загрузка демо-аналитики…
+        </div>
+      ) : (
+        <>
       <div className="grid grid-cols-2 gap-4 lg:grid-cols-3 xl:grid-cols-5">
         <MetricCard title="Расходы $" value={formatUsd(stats.spendUsd)} icon={DollarSign} accent="blue" />
         <MetricCard title="Расходы ₸" value={formatKzt(stats.spendKzt, { compact: true })} icon={Wallet} accent="orange" />
@@ -177,7 +174,149 @@ function AdvertisingInner() {
       <ChartCard title="Эффективность кампаний" description="Метрики по всем активным кампаниям" bodyClassName="p-0">
         <DataTable columns={columns} data={stats.campaigns} rowKey={(c) => c.id} />
       </ChartCard>
+        </>
+      )}
     </div>
+  );
+}
+
+// ===================== Живые данные Meta Ads =====================
+interface MetaCampaign {
+  id: string;
+  name: string;
+  status: string;
+  objective: string;
+  spend: number;
+  impressions: number;
+  clicks: number;
+  ctr: number;
+  cpc: number;
+  leads: number;
+  cpl: number | null;
+}
+interface MetaAdsData {
+  mode: "live" | "mock" | "error";
+  preset?: string;
+  note?: string;
+  error?: string;
+  account: {
+    spend: number;
+    impressions: number;
+    clicks: number;
+    ctr: number;
+    cpc: number;
+    cpm: number;
+    reach: number;
+    leads: number;
+    cpl: number | null;
+  } | null;
+  campaigns: MetaCampaign[];
+}
+
+const PRESET_LABELS: Record<string, string> = {
+  today: "Сегодня",
+  yesterday: "Вчера",
+  last_7d: "7 дней",
+  last_14d: "14 дней",
+  last_30d: "30 дней",
+  last_90d: "90 дней",
+};
+
+function MetaLive() {
+  const [data, setData] = React.useState<MetaAdsData | null>(null);
+  const [preset, setPreset] = React.useState("last_30d");
+  const [loading, setLoading] = React.useState(true);
+
+  React.useEffect(() => {
+    let active = true;
+    setLoading(true);
+    fetch(`/api/ads/meta?preset=${preset}`)
+      .then((r) => r.json())
+      .then((d: MetaAdsData) => {
+        if (active) {
+          setData(d);
+          setLoading(false);
+        }
+      })
+      .catch(() => active && setLoading(false));
+    return () => {
+      active = false;
+    };
+  }, [preset]);
+
+  const statusBadge = (s: string) =>
+    s === "ACTIVE" ? <Badge variant="green">Активна</Badge> : <Badge variant="gray">Пауза</Badge>;
+
+  const cols: Column<MetaCampaign>[] = [
+    { key: "name", header: "Кампания", cell: (c) => <span className="font-medium">{c.name}</span> },
+    { key: "status", header: "Статус", cell: (c) => statusBadge(c.status) },
+    { key: "spend", header: "Расход $", align: "right", cell: (c) => formatUsd(c.spend) },
+    { key: "clicks", header: "Клики", align: "right", cell: (c) => formatNumber(c.clicks) },
+    { key: "ctr", header: "CTR", align: "right", cell: (c) => `${c.ctr.toFixed(2)}%` },
+    { key: "leads", header: "Лиды", align: "right", cell: (c) => formatNumber(c.leads) },
+    {
+      key: "cpl",
+      header: "CPL $",
+      align: "right",
+      cell: (c) =>
+        c.cpl == null ? (
+          <span className="text-muted">—</span>
+        ) : (
+          <Badge variant={c.cpl <= 2 ? "green" : c.cpl <= 5 ? "yellow" : "red"}>{formatUsd(c.cpl)}</Badge>
+        ),
+    },
+  ];
+
+  return (
+    <ChartCard
+      title="🟢 Живые данные · Meta Ads"
+      description={`Прямо из рекламного кабинета · ${PRESET_LABELS[preset] ?? preset}`}
+      action={
+        <select
+          value={preset}
+          onChange={(e) => setPreset(e.target.value)}
+          className="rounded-lg border border-border bg-white px-2.5 py-1.5 text-sm text-ink outline-none"
+        >
+          {Object.entries(PRESET_LABELS).map(([k, v]) => (
+            <option key={k} value={k}>
+              {v}
+            </option>
+          ))}
+        </select>
+      }
+    >
+      {loading ? (
+        <div className="flex items-center justify-center gap-2 py-10 text-sm text-muted">
+          <span className="size-4 animate-spin rounded-full border-2 border-brand border-t-transparent" />
+          Загрузка из Meta…
+        </div>
+      ) : !data || data.mode !== "live" || !data.account ? (
+        <div className="rounded-xl border border-dashed border-border bg-canvas p-4 text-sm text-muted">
+          {data?.mode === "error" ? (
+            <>Ошибка Meta API: {data.error}</>
+          ) : (
+            <>
+              Живые данные недоступны. Добавьте в Vercel переменные{" "}
+              <code className="rounded bg-white px-1">META_ADS_TOKEN</code> и{" "}
+              <code className="rounded bg-white px-1">META_AD_ACCOUNT_ID</code> и сделайте Redeploy.
+            </>
+          )}
+        </div>
+      ) : (
+        <div className="space-y-4">
+          <div className="grid grid-cols-2 gap-3 lg:grid-cols-4 xl:grid-cols-7">
+            <MetricCard title="Расход" value={formatUsd(data.account.spend)} icon={DollarSign} accent="orange" />
+            <MetricCard title="Лиды" value={formatNumber(data.account.leads)} icon={Users} accent="green" />
+            <MetricCard title="CPL" value={data.account.cpl == null ? "—" : formatUsd(data.account.cpl)} icon={DollarSign} accent="purple" />
+            <MetricCard title="Клики" value={formatNumber(data.account.clicks)} icon={TrendingUp} accent="blue" />
+            <MetricCard title="CTR" value={`${data.account.ctr.toFixed(2)}%`} icon={TrendingUp} accent="yellow" />
+            <MetricCard title="Показы" value={formatNumber(data.account.impressions)} icon={Users} accent="blue" />
+            <MetricCard title="Охват" value={formatNumber(data.account.reach)} icon={Users} accent="green" />
+          </div>
+          <DataTable columns={cols} data={data.campaigns} rowKey={(c) => c.id} />
+        </div>
+      )}
+    </ChartCard>
   );
 }
 
