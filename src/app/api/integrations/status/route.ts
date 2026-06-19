@@ -28,6 +28,7 @@ export async function GET() {
     verifyToken: process.env.META_VERIFY_TOKEN || "bilimdibol-demo-verify-token",
     env: {
       metaPageToken: has("META_PAGE_ACCESS_TOKEN"),
+      igPageToken: has("IG_PAGE_TOKEN"),
       supabase: has("NEXT_PUBLIC_SUPABASE_URL") && has("SUPABASE_SERVICE_ROLE_KEY"),
       telegram: has("TELEGRAM_BOT_TOKEN") && has("TELEGRAM_CHAT_ID"),
     },
