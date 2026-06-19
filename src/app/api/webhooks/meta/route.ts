@@ -1,5 +1,20 @@
 import { NextResponse } from "next/server";
 import { ingestLead } from "@/lib/server/lead-intake";
+import { getSupabaseAdmin } from "@/lib/supabase/admin";
+
+async function logEvent(type: string, payload: unknown, status: "ok" | "failed" | "pending") {
+  try {
+    const admin = getSupabaseAdmin();
+    await admin?.from("integration_events").insert({
+      channel: "meta",
+      type,
+      payload: typeof payload === "string" ? payload : JSON.stringify(payload).slice(0, 1500),
+      status,
+    });
+  } catch {
+    /* ignore */
+  }
+}
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -41,8 +56,11 @@ export async function POST(req: Request) {
   try {
     body = await req.json();
   } catch {
+    await logEvent("post_invalid_json", "", "failed");
     return NextResponse.json({ received: true });
   }
+
+  await logEvent("post_received", body, "pending");
 
   const token = process.env.META_PAGE_ACCESS_TOKEN;
   const leadgenEvents = (body.entry ?? [])
@@ -50,10 +68,11 @@ export async function POST(req: Request) {
     .filter((c) => c.field === "leadgen" && c.value?.leadgen_id);
 
   if (leadgenEvents.length === 0) {
+    await logEvent("no_leadgen_events", body, "failed");
     return NextResponse.json({ received: true, note: "no leadgen events" });
   }
   if (!token) {
-    // Нет токена страницы — не можем дотянуть данные лида (demo).
+    await logEvent("no_token", "", "failed");
     return NextResponse.json({ received: true, mode: "mock", note: "META_PAGE_ACCESS_TOKEN не задан" });
   }
 
@@ -62,8 +81,12 @@ export async function POST(req: Request) {
     const leadgenId = ev.value!.leadgen_id!;
     try {
       const res = await fetch(`${GRAPH}/${leadgenId}?fields=field_data,created_time&access_token=${token}`);
-      if (!res.ok) continue;
-      const lead = (await res.json()) as { field_data?: FieldDatum[] };
+      const raw = await res.text();
+      if (!res.ok) {
+        await logEvent("graph_fetch_failed", `id=${leadgenId} status=${res.status} ${raw}`, "failed");
+        continue;
+      }
+      const lead = JSON.parse(raw) as { field_data?: FieldDatum[] };
       const fields = lead.field_data ?? [];
       const name = fieldVal(fields, ["full_name", "name", "имя", "имя_и_фамилия"]);
       const phone = fieldVal(fields, ["phone_number", "phone", "телефон"]);
@@ -77,9 +100,14 @@ export async function POST(req: Request) {
         utmCampaign: ev.value?.form_id || "",
         creativeId: ev.value?.ad_id || "",
       });
+      await logEvent(
+        "lead_processed",
+        { fields, name, phone, email, result },
+        result.ok ? "ok" : "failed",
+      );
       if (result.ok && !result.deduped) created++;
-    } catch {
-      /* пропускаем сбойный лид, остальные обрабатываем */
+    } catch (e) {
+      await logEvent("exception", String(e), "failed");
     }
   }
 
