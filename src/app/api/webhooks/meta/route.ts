@@ -47,6 +47,36 @@ function fieldVal(fields: FieldDatum[], keys: string[]): string {
   return "";
 }
 
+// Извлечение полей с учётом локализованных названий (рус/каз) и по содержимому.
+function extractName(fields: FieldDatum[]): string {
+  const byKey = fieldVal(fields, [
+    "full_name", "name", "имя", "имя_и_фамилия", "полное_имя", "фио",
+    "аты", "толық_аты", "толык_аты", "аты_жөні", "аты-жөні",
+  ]);
+  if (byKey) return byKey;
+  const f = fields.find((x) => /(имя|name|аты|фио|жөн|fname)/i.test(x.name || ""));
+  return f?.values?.[0] || "";
+}
+
+function extractPhone(fields: FieldDatum[]): string {
+  const byKey = fieldVal(fields, [
+    "phone_number", "phone", "телефон", "номер_телефона", "номер", "нөмір", "тел", "telefon", "whatsapp",
+  ]);
+  if (byKey) return byKey;
+  const f = fields.find((x) => {
+    const v = x.values?.[0]?.trim() || "";
+    return /^\+?\d[\d\s()\-]{6,}$/.test(v);
+  });
+  return f?.values?.[0] || "";
+}
+
+function extractEmail(fields: FieldDatum[]): string {
+  const byKey = fieldVal(fields, ["email", "почта", "e-mail", "эл_почта", "электронная_почта"]);
+  if (byKey) return byKey;
+  const f = fields.find((x) => (x.values?.[0] || "").includes("@"));
+  return f?.values?.[0] || "";
+}
+
 // Входящие события Meta (Lead Ads → leadgen). Тянем данные лида через Graph API
 // и создаём лид в CRM той же логикой, что и формы (назначение, сделка, Telegram).
 export async function POST(req: Request) {
@@ -88,9 +118,9 @@ export async function POST(req: Request) {
       }
       const lead = JSON.parse(raw) as { field_data?: FieldDatum[] };
       const fields = lead.field_data ?? [];
-      const name = fieldVal(fields, ["full_name", "name", "имя", "имя_и_фамилия"]);
-      const phone = fieldVal(fields, ["phone_number", "phone", "телефон"]);
-      const email = fieldVal(fields, ["email", "почта"]);
+      const name = extractName(fields);
+      const phone = extractPhone(fields);
+      const email = extractEmail(fields);
       const result = await ingestLead({
         name,
         phone,
