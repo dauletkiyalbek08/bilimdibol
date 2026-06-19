@@ -66,6 +66,7 @@ export async function POST(req: Request) {
           messages?: WaMessage[];
           contacts?: WaContact[];
           statuses?: unknown[];
+          metadata?: { display_phone_number?: string; phone_number_id?: string };
         };
       }[];
     }[];
@@ -86,6 +87,7 @@ export async function POST(req: Request) {
       if (!val?.messages?.length) continue; // statuses (доставка/прочтение) — пропускаем
 
       const contactName = val.contacts?.[0]?.profile?.name || "";
+      const bizNumber = val.metadata?.display_phone_number || ""; // номер, на который написали
 
       for (const m of val.messages) {
         const phone = m.from || val.contacts?.[0]?.wa_id || "";
@@ -100,7 +102,8 @@ export async function POST(req: Request) {
             source: fromAd ? "WhatsApp (реклама)" : "WhatsApp",
             comment:
               (text ? `Сообщение: ${text}` : "Написал в WhatsApp") +
-              (ref?.headline ? ` · из объявления «${ref.headline}»` : ""),
+              (ref?.headline ? ` · из объявления «${ref.headline}»` : "") +
+              (bizNumber ? ` · на номер ${bizNumber}` : ""),
             utmCampaign: ref?.headline || "",
             creativeId: ref?.source_id || "",
           });
