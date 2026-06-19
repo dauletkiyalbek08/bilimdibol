@@ -12,10 +12,12 @@ import {
   AlertTriangle,
   Gauge,
   Languages,
+  Plus,
 } from "lucide-react";
 import { useApp } from "@/lib/store";
 import { LANG_LABEL } from "@/lib/mock/calls";
-import { fetchCalls } from "@/lib/data/calls";
+import { fetchCalls, createCall } from "@/lib/data/calls";
+import { fetchUsers } from "@/lib/data/users";
 import { getRole } from "@/lib/roles";
 import { PageHeader } from "@/components/page-header";
 import { RoleBasedGuard } from "@/components/role-based-guard";
@@ -26,9 +28,28 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Select } from "@/components/ui/select";
+import { Input } from "@/components/ui/input";
+import { Modal } from "@/components/ui/modal";
 import { UserAvatar } from "@/components/user-avatar";
 import { fmtDateTime, cn } from "@/lib/utils";
-import type { CallRecord, CallAnalysis, CallAnalysisChecklist } from "@/lib/types";
+import type { CallRecord, CallAnalysis, CallAnalysisChecklist, CallLanguage } from "@/lib/types";
+
+/** Парсит транскрипт: строки «К: …» → клиент, остальное → менеджер. */
+function parseTranscript(text: string): { speaker: "agent" | "client"; text: string }[] {
+  return text
+    .split("\n")
+    .map((l) => l.trim())
+    .filter(Boolean)
+    .map((l) => {
+      const m = l.match(/^([^:]{1,12}):\s*(.*)$/);
+      if (m) {
+        const tag = m[1].toLowerCase();
+        const isClient = tag.startsWith("к") || tag.includes("client") || tag.includes("clien");
+        return { speaker: isClient ? ("client" as const) : ("agent" as const), text: m[2] };
+      }
+      return { speaker: "agent" as const, text: l };
+    });
+}
 
 const CHECKLIST_LABELS: { key: keyof CallAnalysisChecklist; label: string }[] = [
   { key: "greeting", label: "Было приветствие" },
@@ -66,6 +87,20 @@ function CallsInner() {
   const [playing, setPlaying] = React.useState(false);
   const [analyzing, setAnalyzing] = React.useState(false);
 
+  const [employees, setEmployees] = React.useState<{ id: string; name: string }[]>([]);
+  const [createOpen, setCreateOpen] = React.useState(false);
+  const [saving, setSaving] = React.useState(false);
+  const emptyDraft = {
+    employeeId: "",
+    clientName: "",
+    durMin: "",
+    durSec: "",
+    language: "ru" as CallLanguage,
+    result: "",
+    transcript: "",
+  };
+  const [draft, setDraft] = React.useState(emptyDraft);
+
   React.useEffect(() => {
     let active = true;
     fetchCalls().then((rows) => {
@@ -74,10 +109,42 @@ function CallsInner() {
         setSelectedId((cur) => cur ?? rows[0]?.id ?? null);
       }
     });
+    fetchUsers().then((us) => {
+      if (active) {
+        const list = us
+          .filter((u) => u.active !== false && ["hunter", "manager", "rop"].includes(u.role))
+          .map((u) => ({ id: u.id, name: u.name }));
+        setEmployees(list);
+        setDraft((d) => (d.employeeId ? d : { ...d, employeeId: list[0]?.id ?? "" }));
+      }
+    });
     return () => {
       active = false;
     };
   }, []);
+
+  async function handleCreateCall() {
+    if (!draft.clientName.trim() || !draft.employeeId) return;
+    setSaving(true);
+    const durationSec = (parseInt(draft.durMin || "0", 10) || 0) * 60 + (parseInt(draft.durSec || "0", 10) || 0);
+    const call = await createCall({
+      employeeId: draft.employeeId,
+      clientName: draft.clientName.trim(),
+      durationSec,
+      language: draft.language,
+      result: draft.result.trim(),
+      transcript: draft.transcript.trim() ? parseTranscript(draft.transcript) : [],
+    });
+    setSaving(false);
+    if (!call) {
+      alert("⚠️ Не удалось сохранить звонок. Проверьте доступ/соединение.");
+      return;
+    }
+    setCalls((prev) => [call, ...prev]);
+    setSelectedId(call.id);
+    setCreateOpen(false);
+    setDraft({ ...emptyDraft, employeeId: employees[0]?.id ?? "" });
+  }
 
   const filtered = calls.filter((c) => langFilter === "all" || c.language === langFilter);
   const selected = calls.find((c) => c.id === selectedId) ?? null;
@@ -153,8 +220,79 @@ function CallsInner() {
   return (
     <div className="space-y-6">
       <PageHeader title="Анализ звонков" description={`AI-контроль качества разговоров · ${range.label}`}>
+        <Button variant="outline" onClick={() => setCreateOpen(true)}>
+          <Plus /> Добавить звонок
+        </Button>
         <ExportButton />
       </PageHeader>
+
+      <Modal
+        open={createOpen}
+        onClose={() => setCreateOpen(false)}
+        title="Новый звонок"
+        description="Добавьте звонок вручную. Транскрипт можно вставить для AI-анализа."
+        footer={
+          <>
+            <Button variant="ghost" onClick={() => setCreateOpen(false)}>
+              Отмена
+            </Button>
+            <Button onClick={handleCreateCall} disabled={saving || !draft.clientName.trim() || !draft.employeeId}>
+              {saving ? "Сохранение…" : "Добавить"}
+            </Button>
+          </>
+        }
+      >
+        <div className="space-y-3">
+          <div>
+            <label className="mb-1 block text-sm font-medium text-ink">Сотрудник</label>
+            <Select value={draft.employeeId} onChange={(e) => setDraft({ ...draft, employeeId: e.target.value })}>
+              {employees.length === 0 && <option value="">Нет сотрудников</option>}
+              {employees.map((e) => (
+                <option key={e.id} value={e.id}>
+                  {e.name}
+                </option>
+              ))}
+            </Select>
+          </div>
+          <div>
+            <label className="mb-1 block text-sm font-medium text-ink">Клиент</label>
+            <Input value={draft.clientName} onChange={(e) => setDraft({ ...draft, clientName: e.target.value })} placeholder="Имя клиента" />
+          </div>
+          <div className="grid grid-cols-3 gap-3">
+            <div>
+              <label className="mb-1 block text-sm font-medium text-ink">Минуты</label>
+              <Input type="number" min="0" value={draft.durMin} onChange={(e) => setDraft({ ...draft, durMin: e.target.value })} placeholder="0" />
+            </div>
+            <div>
+              <label className="mb-1 block text-sm font-medium text-ink">Секунды</label>
+              <Input type="number" min="0" max="59" value={draft.durSec} onChange={(e) => setDraft({ ...draft, durSec: e.target.value })} placeholder="0" />
+            </div>
+            <div>
+              <label className="mb-1 block text-sm font-medium text-ink">Язык</label>
+              <Select value={draft.language} onChange={(e) => setDraft({ ...draft, language: e.target.value as CallLanguage })}>
+                <option value="ru">Русский</option>
+                <option value="kz">Казахский</option>
+                <option value="mixed">Смешанный</option>
+              </Select>
+            </div>
+          </div>
+          <div>
+            <label className="mb-1 block text-sm font-medium text-ink">Результат</label>
+            <Input value={draft.result} onChange={(e) => setDraft({ ...draft, result: e.target.value })} placeholder="Напр. Назначен пробный урок" />
+          </div>
+          <div>
+            <label className="mb-1 block text-sm font-medium text-ink">Транскрипт (необязательно)</label>
+            <textarea
+              value={draft.transcript}
+              onChange={(e) => setDraft({ ...draft, transcript: e.target.value })}
+              rows={5}
+              placeholder={"М: Здравствуйте! Чем могу помочь?\nК: Хочу узнать про курсы\nМ: ..."}
+              className="w-full rounded-xl border border-border bg-white px-3 py-2 text-sm text-ink outline-none transition-colors focus:border-brand"
+            />
+            <p className="mt-1 text-xs text-muted">Строки «К:» — клиент, остальные — менеджер. Нужен для AI-анализа.</p>
+          </div>
+        </div>
+      </Modal>
 
       <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
         <MetricCard title="Всего звонков" value={String(calls.length)} icon={PhoneCall} accent="blue" />

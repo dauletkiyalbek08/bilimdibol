@@ -53,3 +53,37 @@ export async function fetchCalls(): Promise<CallRecord[]> {
     return CALLS;
   }
 }
+
+export interface NewCallInput {
+  employeeId: string;
+  clientName: string;
+  durationSec: number;
+  language: CallLanguage;
+  result?: string;
+  transcript?: { speaker: "agent" | "client"; text: string }[];
+}
+
+/** Лог звонка вручную. Возвращает запись при успехе, иначе null. */
+export async function createCall(input: NewCallInput): Promise<CallRecord | null> {
+  const sb = getSupabase();
+  if (!sb) return null;
+  try {
+    const { data, error } = await sb
+      .from("calls")
+      .insert({
+        employee_id: input.employeeId || null,
+        client_name: input.clientName,
+        duration_sec: input.durationSec,
+        language: input.language,
+        status: "pending",
+        result: input.result ?? "",
+        transcript: input.transcript ?? [],
+      })
+      .select("*, users(name, role)")
+      .single();
+    if (error || !data) return null;
+    return mapRow(data as CallRow);
+  } catch {
+    return null;
+  }
+}
